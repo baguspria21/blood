@@ -1,26 +1,212 @@
 @import "tailwindcss";
 
+/* ============================================================
+   Blood-Connect Palu — Design System
+   ============================================================ */
+
 :root {
+  /* Brand Colors */
+  --bc-red-50:  #fff1f2;
+  --bc-red-100: #ffe4e6;
+  --bc-red-200: #fecdd3;
+  --bc-red-400: #fb7185;
+  --bc-red-500: #ef4444;
+  --bc-red-600: #dc2626;
+  --bc-red-700: #b91c1c;
+  --bc-red-800: #991b1b;
+  --bc-red-900: #7f1d1d;
+
+  /* Neutral */
+  --bc-gray-50:  #f9fafb;
+  --bc-gray-100: #f3f4f6;
+  --bc-gray-200: #e5e7eb;
+  --bc-gray-400: #9ca3af;
+  --bc-gray-500: #6b7280;
+  --bc-gray-700: #374151;
+  --bc-gray-900: #111827;
+
+  /* Gradients */
+  --gradient-brand: linear-gradient(135deg, #dc2626 0%, #b91c1c 50%, #7f1d1d 100%);
+  --gradient-soft:  linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+
+  /* Shadows */
+  --shadow-card: 0 4px 24px -4px rgba(220, 38, 38, 0.12), 0 2px 8px -2px rgba(0,0,0,0.06);
+  --shadow-input: 0 0 0 3px rgba(220, 38, 38, 0.15);
+
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #111827;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: var(--font-plus-jakarta), sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* === Base === */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
 }
+
+/* === Brand Utility Classes === */
+.font-display { font-family: var(--font-plus-jakarta), sans-serif; }
+
+.gradient-brand { background: var(--gradient-brand); }
+.gradient-soft  { background: var(--gradient-soft); }
+
+.text-gradient {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* === Card === */
+.card {
+  background: white;
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--bc-red-100);
+}
+
+/* === Form Input === */
+.input-field {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1.5px solid var(--bc-gray-200);
+  border-radius: 0.75rem;
+  font-size: 0.9375rem;
+  color: var(--bc-gray-900);
+  background: white;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.input-field::placeholder { color: var(--bc-gray-400); }
+
+.input-field:focus {
+  border-color: var(--bc-red-500);
+  box-shadow: var(--shadow-input);
+}
+
+.input-field:disabled {
+  background: var(--bc-gray-100);
+  color: var(--bc-gray-400);
+  cursor: not-allowed;
+}
+
+/* === Buttons === */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  background: var(--gradient-brand);
+  color: white;
+  font-weight: 600;
+  font-size: 1rem;
+  border: none;
+  border-radius: 0.875rem;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4);
+}
+
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.92;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.45);
+}
+
+.btn-primary:active:not(:disabled) { transform: translateY(0); }
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* === Select Segmented (Blood Type / Rhesus) === */
+.segment-group {
+  display: flex;
+  border-radius: 0.75rem;
+  border: 1.5px solid var(--bc-gray-200);
+  overflow: hidden;
+  background: var(--bc-gray-50);
+}
+
+.segment-option {
+  flex: 1;
+  padding: 0.65rem 0.25rem;
+  text-align: center;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--bc-gray-500);
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+  border: none;
+  background: transparent;
+}
+
+.segment-option:not(:last-child) { border-right: 1.5px solid var(--bc-gray-200); }
+
+.segment-option.active {
+  background: var(--gradient-brand);
+  color: white;
+  font-weight: 600;
+}
+
+/* === Progress / Spinner === */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  width: 1.125rem;
+  height: 1.125rem;
+  border: 2.5px solid rgba(255,255,255,0.4);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+/* === Pulse animation (blood drop) === */
+@keyframes pulse-blood {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(1.08); opacity: 0.85; }
+}
+
+.pulse-blood { animation: pulse-blood 2s ease-in-out infinite; }
+
+/* === Alert === */
+.alert {
+  padding: 0.875rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.alert-error   { background: #fff1f2; border: 1px solid #fecdd3; color: #991b1b; }
+.alert-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+
+/* === Scroll-bar === */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bc-red-200); border-radius: 999px; }
