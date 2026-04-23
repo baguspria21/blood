@@ -38,12 +38,13 @@ export async function checkDuplicateRequest(
 
 /**
  * Finalizes the verification, updates status to approved,
- * applies priority, and "blasts" the message (conceptually).
+ * applies priority, saves donation schedule, and blasts the WhatsApp job payload.
  */
 export async function approveAndBlastRequest(
   requestId: string,
   priority: 'cito' | 'regular',
-  adminNotes: string
+  adminNotes: string,
+  donationSchedule: { date: string; time: string }
 ) {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -52,13 +53,17 @@ export async function approveAndBlastRequest(
     return { success: false, error: 'Unauthorized' }
   }
 
-  // 1. Update the database
+  // Build TIMESTAMPTZ string from date + time (local WIB = +08:00)
+  const scheduleISO = `${donationSchedule.date}T${donationSchedule.time}:00+08:00`
+
+  // 1. Update the database (status + schedule)
   const { error } = await supabase
     .from('blood_requests')
     .update({
       status: 'approved',
       priority: priority,
-      admin_notes: adminNotes || null
+      admin_notes: adminNotes || null,
+      donation_schedule: scheduleISO,
     })
     .eq('id', requestId)
 
@@ -66,9 +71,32 @@ export async function approveAndBlastRequest(
     return { success: false, error: error.message }
   }
 
-  // NOTE: If using the existing Edge Function trigger for WhatsApp,
-  // it might fire automatically on `status = approved`.
-  // The trigger might need to be verified to support 'priority'.
+  // 2. Build the structured WhatsApp job payload (Redis-style job object)
+  const jobPayload = {
+    job: 'whatsapp_blast',
+    request_id: requestId,
+    priority,
+    donation_schedule: scheduleISO,
+    admin_notes: adminNotes || null,
+    queued_at: new Date().toISOString(),
+  }
+
+  console.log('[Blood-Connect] WhatsApp Job Queued:', JSON.stringify(jobPayload, null, 2))
+
+  // 3. Trigger Edge Function with full job payload (non-blocking)
+  const edgeFunctionUrl =
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/notify-volunteers`
+
+  fetch(edgeFunctionUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+    },
+    body: JSON.stringify(jobPayload),
+  }).catch((err) =>
+    console.error('[Blood-Connect] Edge Function error:', err)
+  )
 
   revalidatePath('/admin/permintaan')
   revalidatePath('/admin')

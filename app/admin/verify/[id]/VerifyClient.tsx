@@ -26,12 +26,21 @@ export default function VerifyClient({ request }: { request: RequestData }) {
     stampValid: false,
     bloodMatch: false,
   })
-  const allChecked = checks.nameMatch && checks.stampValid && checks.bloodMatch
 
   // Priority & Action State
   const [priority, setPriority] = useState<'cito' | 'regular'>('regular')
   const [adminNotes, setAdminNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
+
+  // Donation Schedule State
+  const today = new Date().toISOString().split('T')[0]
+  const [donationDate, setDonationDate] = useState('')
+  const [donationTime, setDonationTime] = useState('')
+
+  // Derived guards
+  const allChecked = checks.nameMatch && checks.stampValid && checks.bloodMatch
+  const scheduleReady = donationDate !== '' && donationTime !== ''
+  const canApprove = allChecked && scheduleReady
 
   // Duplicates State
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null)
@@ -60,11 +69,16 @@ export default function VerifyClient({ request }: { request: RequestData }) {
   }, [request])
 
   const submitVerification = async () => {
-    if (!allChecked) return
+    if (!canApprove) return
 
     startTransition(async () => {
       setError(null)
-      const res = await approveAndBlastRequest(request.id, priority, adminNotes)
+      const res = await approveAndBlastRequest(
+        request.id,
+        priority,
+        adminNotes,
+        { date: donationDate, time: donationTime }
+      )
       if (!res.success) {
         setError(res.error || 'Server error occurred.')
       } else {
@@ -75,10 +89,13 @@ export default function VerifyClient({ request }: { request: RequestData }) {
 
   // Generate the WhatsApp Preview Message
   const waIcon = priority === 'cito' ? '🔴 [URGENT/CITO]' : '🟡 [REGULAR]'
+  const scheduleStr = donationDate && donationTime
+    ? `\n📅 Jadwal Donor: *${new Date(donationDate).toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })} pukul ${donationTime} WITA*`
+    : '\n📅 Jadwal: *Menunggu penetapan admin*'
   const waMessagePreview = `*${waIcon} Panggilan Darurat Donor Darah!*
   
 Halo Pahlawan Darah, pasien bernama *${request.patient_name}* sangat membutuhkan darah *${request.blood_type}${request.rhesus}* sebanyak *${request.bags_needed} Kantong* saat ini.
-🏥 Lokasi: *${request.hospitals?.name ?? 'Tidak Diketahui'}*
+🏥 Lokasi: *${request.hospitals?.name ?? 'Tidak Diketahui'}*${scheduleStr}
   
 Mohon bantuan Anda untuk segera respon di aplikasi BloodConnect Palu.`
 
@@ -239,6 +256,55 @@ Mohon bantuan Anda untuk segera respon di aplikasi BloodConnect Palu.`
             </div>
           </div>
 
+          {/* Section 2.5: Donation Schedule */}
+          <div className="card overflow-hidden border-2" style={{ borderColor: scheduleReady ? '#86efac' : '#e5e7eb' }}>
+            <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
+              <h2 className="font-display font-bold text-gray-900 flex items-center justify-between">
+                <span>2.5. Jadwal Donor</span>
+                {scheduleReady
+                  ? <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-lg font-mono">✅ Siap</span>
+                  : <span className="text-xs px-2 py-1 bg-red-50 text-red-500 rounded-lg font-mono">Wajib Diisi</span>
+                }
+              </h2>
+              <p className="text-xs text-gray-400 mt-1">Tetapkan tanggal & jam donasi yang akan disertakan dalam pesan WhatsApp.</p>
+            </div>
+            <div className="p-5 grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="donation-date-input" className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Tanggal Donor <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="donation-date-input"
+                  type="date"
+                  min={today}
+                  value={donationDate}
+                  onChange={(e) => setDonationDate(e.target.value)}
+                  className="w-full px-3 py-2.5 border-1.5 border-gray-200 rounded-xl text-sm focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none transition"
+                />
+              </div>
+              <div>
+                <label htmlFor="donation-time-input" className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Jam Donor <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="donation-time-input"
+                  type="time"
+                  value={donationTime}
+                  onChange={(e) => setDonationTime(e.target.value)}
+                  className="w-full px-3 py-2.5 border-1.5 border-gray-200 rounded-xl text-sm focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none transition"
+                />
+              </div>
+              {scheduleReady && (
+                <div className="col-span-2 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-green-50 border border-green-200">
+                  <span className="text-green-600">📅</span>
+                  <p className="text-sm font-semibold text-green-800">
+                    {new Date(donationDate).toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })} · {donationTime} WITA
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Section C: Action Layout & WhatsApp Preview */}
           <div className="card">
             <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
@@ -260,12 +326,12 @@ Mohon bantuan Anda untuk segera respon di aplikasi BloodConnect Palu.`
 
               <button
                 onClick={submitVerification}
-                disabled={!allChecked || isPending}
+                disabled={!canApprove || isPending}
                 className={`w-full py-4 rounded-xl font-bold text-white text-lg transition-all shadow-lg flex justify-center items-center gap-3 ${
-                  !allChecked 
-                    ? 'bg-gray-300 cursor-not-allowed shadow-none' 
-                    : priority === 'cito' 
-                      ? 'bg-red-600 hover:bg-red-700 hover:scale-[1.02]' 
+                  !canApprove
+                    ? 'bg-gray-300 cursor-not-allowed shadow-none'
+                    : priority === 'cito'
+                      ? 'bg-red-600 hover:bg-red-700 hover:scale-[1.02]'
                       : 'bg-amber-600 hover:bg-amber-700 hover:scale-[1.02]'
                 }`}
               >
@@ -276,8 +342,12 @@ Mohon bantuan Anda untuk segera respon di aplikasi BloodConnect Palu.`
                 )}
               </button>
 
-              {!allChecked && (
-                <p className="text-center text-xs text-red-500 mt-3 font-medium">Selesaikan semua centang validasi [ Bagian 1 ] untuk mengaktifkan tombol ini.</p>
+              {!canApprove && (
+                <p className="text-center text-xs text-red-500 mt-3 font-medium">
+                  {!allChecked
+                    ? 'Selesaikan semua centang validasi [ Bagian 1 ] untuk mengaktifkan tombol ini.'
+                    : 'Tetapkan jadwal donor [ Bagian 2.5 ] untuk mengaktifkan tombol ini.'}
+                </p>
               )}
             </div>
           </div>

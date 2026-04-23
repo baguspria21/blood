@@ -64,11 +64,12 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <StatCard label="Total Permintaan" value={totalRequests ?? 0} />
         <StatCard label="Menunggu Review" value={pendingRequests ?? 0} color="#d97706" sub="Perlu tindakan" />
         <StatCard label="Disetujui" value={approvedRequests ?? 0} color="#16a34a" />
         <StatCard label="Total Relawan" value={totalVolunteers ?? 0} color="#7c3aed" />
+        <StatCard label="Total Stok" value={totalBags} color="#e11d48" sub="Semua Golongan" />
       </div>
 
       {/* Blood Inventory Summary */}

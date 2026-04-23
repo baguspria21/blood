@@ -69,7 +69,7 @@ export function TrackingStatus({ requestId }: { requestId: string }) {
         if (err || !row) {
           setError('Permintaan tidak ditemukan. Periksa kembali ID Anda.')
         } else {
-          setData(row as TrackingData)
+          setData(row as unknown as TrackingData)
           setLastUpdated(new Date())
           prevStatus.current = row.status as Status
         }

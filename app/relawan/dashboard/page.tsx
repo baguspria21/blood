@@ -2,6 +2,8 @@ import { createSupabaseServerClient } from '@/lib/supabaseServer'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { DonateButton } from './_components/DonateButton'
+import { BloodStockWidget } from './_components/BloodStockWidget'
+import { FaqAccordion } from './_components/FaqAccordion'
 
 export const metadata = {
   title: 'Dashboard Relawan — Blood-Connect Palu',
@@ -50,16 +52,21 @@ export default async function VolunteerDashboard() {
         style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)' }}
       >
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 no-underline">
+          <Link href="/" className="flex items-center gap-2.5 no-underline">
             <div
-              className="w-8 h-8 rounded-lg gradient-brand flex items-center justify-center"
+              className="w-8 h-8 rounded-lg gradient-brand flex items-center justify-center flex-shrink-0"
               style={{ boxShadow: '0 2px 8px rgba(220,38,38,0.3)' }}
             >
               <BloodDropIcon size={14} className="text-white" />
             </div>
-            <span className="font-display font-bold text-gray-900 text-sm">
-              Blood<span className="text-gradient">Connect</span>
-            </span>
+            <div className="leading-tight">
+              <span className="font-display font-bold text-gray-900 text-sm block">
+                Blood<span className="text-gradient">Connect</span>
+              </span>
+              <span className="block text-[10px] text-gray-400 font-medium -mt-0.5 tracking-wide">
+                DASBOR RELAWAN
+              </span>
+            </div>
           </Link>
 
           <form action="/api/v1/auth/logout" method="POST">
@@ -137,6 +144,9 @@ export default async function VolunteerDashboard() {
           </div>
         </div>
 
+        {/* Blood Stock Widget */}
+        <BloodStockWidget />
+
         {/* Volunteer-Initiated Donation */}
         <DonateButton canDonate={canDonate} cooldownRemaining={cooldownRemaining} />
 
@@ -188,6 +198,9 @@ export default async function VolunteerDashboard() {
             📲 Saat ada permintaan darah yang cocok, Anda akan mendapat notifikasi via <strong>WhatsApp</strong> secara otomatis.
           </p>
         </div>
+
+        {/* FAQ / How to Use */}
+        <FaqAccordion />
 
         {/* Footer */}
         <p className="text-center text-xs text-gray-400 pt-4">
