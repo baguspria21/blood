@@ -89,6 +89,28 @@ export default async function HomePage() {
           </Link>
         </div>
 
+        {/* Transfusion Form CTA */}
+        <div className="w-full max-w-sm mx-auto mt-3">
+          <Link
+            href="/permintaan-transfusi"
+            id="hero-transfusion-btn"
+            className="group flex items-center gap-3 w-full px-5 py-3.5 rounded-[0.875rem] border-2 border-dashed border-red-200 text-gray-600 hover:border-red-400 hover:bg-red-50 hover:text-red-700 transition-all font-medium text-sm"
+          >
+            <span className="w-8 h-8 rounded-lg bg-red-50 group-hover:bg-red-100 flex items-center justify-center flex-shrink-0 transition-colors">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-500">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </span>
+            <div className="text-left">
+              <p className="font-semibold leading-tight">Surat Permintaan Transfusi</p>
+              <p className="text-xs text-gray-400 mt-0.5">Formulir lengkap untuk RSUD / Bank Darah</p>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="ml-auto flex-shrink-0 text-gray-400 group-hover:text-red-500 transition-colors">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+        </div>
+
         {/* Detailed Blood Stock Stats */}
         <div className="w-full max-w-3xl mt-14 mb-8">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Stok Darah Tersedia (Kantong)</p>
