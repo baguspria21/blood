@@ -99,7 +99,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const { transfusion_request_id, status } = await req.json()
+    const { transfusion_request_id, status, rejection_notes } = await req.json()
     if (!transfusion_request_id || !status) {
       return NextResponse.json({ error: 'transfusion_request_id and status required.' }, { status: 400 })
     }
@@ -109,9 +109,14 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid status.' }, { status: 400 })
     }
 
+    const updatePayload: Record<string, unknown> = { status }
+    if (rejection_notes !== undefined) {
+      updatePayload.rejection_notes = rejection_notes
+    }
+
     const { error } = await supabase
       .from('transfusion_requests')
-      .update({ status })
+      .update(updatePayload)
       .eq('id', transfusion_request_id)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

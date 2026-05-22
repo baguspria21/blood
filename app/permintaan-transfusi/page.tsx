@@ -132,8 +132,8 @@ function YesNoToggle({
 
 // ─── Main Form Component ──────────────────────────────────────────────────────
 export default function PermintaanTransfusiPage() {
-  const [hospitals, setHospitals] = useState<Hospital[]>([])
-  const [loadingHospitals, setLoadingHospitals] = useState(true)
+  // ── Auto hospital identity (loaded from session) ─────────────────────────
+  const [hospitalProfile, setHospitalProfile] = useState<{ name: string; hospital_name: string; id?: string } | null>(null)
 
   // ── Section 1: Identitas ────────────────────────────────────────────────
   const [requestingHospital, setRequestingHospital] = useState('')
@@ -201,12 +201,17 @@ export default function PermintaanTransfusiPage() {
   const [error, setError] = useState<string | null>(null)
   const [successData, setSuccessData] = useState<{ id: string; patient_name: string } | null>(null)
 
-  // ── Load hospitals ─────────────────────────────────────────────────────
+  // ── Auto-load hospital identity ────────────────────────────────────────
   useEffect(() => {
-    fetch('/api/v1/hospitals')
+    fetch('/api/v1/me')
       .then(r => r.json())
-      .then(d => { setHospitals(d.hospitals ?? []); setLoadingHospitals(false) })
-      .catch(() => setLoadingHospitals(false))
+      .then(d => {
+        setHospitalProfile(d)
+        // Auto-fill the hospital name from profile
+        const name = d.hospital_name || d.name || ''
+        if (name) setRequestingHospital(name)
+      })
+      .catch(() => {})
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -348,7 +353,7 @@ export default function PermintaanTransfusiPage() {
       <header className="sticky top-0 z-40 border-b border-red-100"
         style={{ background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(14px)' }}>
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 no-underline">
+          <Link href="/rumah-sakit/dashboard" className="flex items-center gap-2.5 no-underline">
             <div className="w-8 h-8 rounded-lg gradient-brand flex items-center justify-center flex-shrink-0"
               style={{ boxShadow: '0 2px 8px rgba(220,38,38,0.3)' }}>
               <BloodDropIcon size={14} className="text-white" />
@@ -362,7 +367,7 @@ export default function PermintaanTransfusiPage() {
               </span>
             </div>
           </Link>
-          <Link href="/" className="text-sm text-gray-500 hover:text-red-600 transition-colors font-medium">
+          <Link href="/rumah-sakit/dashboard" className="text-sm text-gray-500 hover:text-red-600 transition-colors font-medium">
             ← Kembali
           </Link>
         </div>
@@ -404,39 +409,22 @@ export default function PermintaanTransfusiPage() {
             <SectionHeader num={1} title="Identitas Pemohon" subtitle="Data Rumah Sakit dan dokter yang meminta" />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <FieldLabel htmlFor="requesting-hospital-input">Rumah Sakit</FieldLabel>
-                <input
-                  id="requesting-hospital-input"
-                  type="text"
-                  className="input-field"
-                  placeholder="Nama Rumah Sakit"
-                  value={requestingHospital}
-                  onChange={e => setRequestingHospital(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="hospital-select">Pilih RS (untuk sistem)</FieldLabel>
-                {loadingHospitals ? (
-                  <div className="input-field bg-gray-50 text-gray-400">Memuat daftar RS...</div>
-                ) : (
-                  <select
-                    id="hospital-select"
-                    className="input-field"
-                    value={hospitalId}
-                    onChange={e => {
-                      setHospitalId(e.target.value)
-                      const h = hospitals.find(h => h.id === e.target.value)
-                      if (h && !requestingHospital) setRequestingHospital(h.name)
-                    }}
-                  >
-                    <option value="">-- Pilih RS --</option>
-                    {hospitals.map(h => (
-                      <option key={h.id} value={h.id}>{h.name}</option>
-                    ))}
-                  </select>
-                )}
+              {/* Auto-identity: hospital name from profile (read-only) */}
+              <div className="md:col-span-2">
+                <FieldLabel>Rumah Sakit</FieldLabel>
+                <div
+                  className="input-field bg-gray-50 text-gray-700 font-semibold flex items-center gap-2"
+                  style={{ cursor: 'default' }}
+                >
+                  <span className="text-base">🏥</span>
+                  {requestingHospital || (
+                    <span className="text-gray-400 font-normal">Memuat data akun...</span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Nama RS diambil otomatis dari akun Anda.{' '}
+                  <a href="/rumah-sakit/profil" className="text-red-600 hover:underline">Edit profil</a>
+                </p>
               </div>
 
               <div>
@@ -990,7 +978,7 @@ export default function PermintaanTransfusiPage() {
                 },
                 {
                   label: 'RS Tujuan',
-                  value: hospitals.find(h => h.id === hospitalId)?.name || requestingHospital || '—',
+                  value: requestingHospital || '—',
                 },
               ].map(({ label, value, highlight }) => (
                 <div key={label} className={`rounded-xl p-3 ${highlight ? 'gradient-brand' : 'bg-white'}`}>
@@ -1024,7 +1012,7 @@ export default function PermintaanTransfusiPage() {
             <button
               type="submit"
               id="submit-transfusion-btn"
-              disabled={submitting || loadingHospitals}
+              disabled={submitting}
               className="btn-primary"
             >
               {submitting ? (

@@ -18,6 +18,7 @@ interface TransfusionRequest {
   contact_phone: string
   hemoglobin: number | null
   status: string
+  rejection_notes?: string | null
   wb_fresh_volume: number | null
   wb_new_volume: number | null
   wb_regular_volume: number | null
@@ -97,10 +98,55 @@ function BloodProductsRequested({ req }: { req: TransfusionRequest }) {
   )
 }
 
+// ── Availability Toggle ───────────────────────────────────────────────────────
+function AvailabilityToggle({
+  available,
+  onChange,
+}: {
+  available: boolean
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <div className="flex gap-3 mb-6">
+      <button
+        type="button"
+        id="blood-available-btn"
+        onClick={() => onChange(true)}
+        className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-center gap-2 ${
+          available
+            ? 'border-green-500 bg-green-600 text-white shadow-sm'
+            : 'border-gray-200 text-gray-500 hover:border-green-200 hover:text-green-600'
+        }`}
+      >
+        ✅ Darah Tersedia
+      </button>
+      <button
+        type="button"
+        id="blood-unavailable-btn"
+        onClick={() => onChange(false)}
+        className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-center gap-2 ${
+          !available
+            ? 'border-red-500 bg-red-600 text-white shadow-sm'
+            : 'border-gray-200 text-gray-500 hover:border-red-200 hover:text-red-600'
+        }`}
+      >
+        ❌ Tidak Tersedia
+      </button>
+    </div>
+  )
+}
+
 export function ResponseForm({ request, existingResponses }: Props) {
   const today = new Date().toISOString().split('T')[0]
   const now = new Date().toTimeString().slice(0, 5)
 
+  // ── Availability mode ──────────────────────────────────────────────────────
+  const [isAvailable, setIsAvailable] = useState(request.status !== 'rejected')
+  const [rejectionNotes, setRejectionNotes] = useState(request.rejection_notes ?? '')
+  const [sendingRejection, setSendingRejection] = useState(false)
+  const [rejectionSent, setRejectionSent] = useState(request.status === 'rejected')
+
+  // ── Blood bag form ─────────────────────────────────────────────────────────
   const [form, setForm] = useState({
     bag_number: '',
     collection_date: today,
@@ -124,14 +170,10 @@ export function ResponseForm({ request, existingResponses }: Props) {
   const update = (key: keyof typeof form, value: string) =>
     setForm(prev => ({ ...prev, [key]: value }))
 
-  const handleSignatureSave = useCallback((dataUrl: string) => {
-    setSignature(dataUrl)
-  }, [])
+  const handleSignatureSave = useCallback((dataUrl: string) => { setSignature(dataUrl) }, [])
+  const handleSignatureClear = useCallback(() => { setSignature(null) }, [])
 
-  const handleSignatureClear = useCallback(() => {
-    setSignature(null)
-  }, [])
-
+  // ── Submit blood bag ───────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.bag_number.trim()) return setError('Nomor kantong wajib diisi.')
@@ -155,14 +197,7 @@ export function ResponseForm({ request, existingResponses }: Props) {
       setSuccessCount(c => c + 1)
       setCurrentStatus('approved')
 
-      // Reset form
-      setForm(prev => ({
-        ...prev,
-        bag_number: '',
-        collection_date: today,
-        volume_cc: '',
-        receiver_name: '',
-      }))
+      setForm(prev => ({ ...prev, bag_number: '', collection_date: today, volume_cc: '', receiver_name: '' }))
       setSignature(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Terjadi kesalahan.')
@@ -171,6 +206,7 @@ export function ResponseForm({ request, existingResponses }: Props) {
     }
   }
 
+  // ── Mark done ──────────────────────────────────────────────────────────────
   const handleMarkDone = async () => {
     setMarkingDone(true)
     try {
@@ -185,9 +221,36 @@ export function ResponseForm({ request, existingResponses }: Props) {
     }
   }
 
+  // ── Send rejection ─────────────────────────────────────────────────────────
+  const handleSendRejection = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSendingRejection(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/v1/admin/transfusion-responses', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transfusion_request_id: request.id,
+          status: 'rejected',
+          rejection_notes: rejectionNotes.trim() || 'Darah tidak tersedia.',
+        }),
+      })
+      if (!res.ok) throw new Error('Gagal mengirim status.')
+      setCurrentStatus('rejected')
+      setRejectionSent(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Terjadi kesalahan.')
+    } finally {
+      setSendingRejection(false)
+    }
+  }
+
   const BLOOD_TYPES = ['A', 'B', 'AB', 'O']
   const RHESUS_OPTIONS = ['Positif', 'Negatif']
   const BLOOD_CATEGORIES = ['PRC', 'Whole Blood', 'FFP', 'Thrombocyte Concentrate', 'Cryoprecipitate', 'Buffy Coat', 'Plasma Biasa']
+
+  const isFinished = currentStatus === 'completed' || (currentStatus === 'rejected' && rejectionSent)
 
   return (
     <div className="space-y-6">
@@ -208,12 +271,12 @@ export function ResponseForm({ request, existingResponses }: Props) {
             <span className={`text-sm font-bold px-3 py-1.5 rounded-lg ${
               currentStatus === 'completed' ? 'bg-green-100 text-green-700' :
               currentStatus === 'approved'  ? 'bg-blue-100 text-blue-700' :
-              currentStatus === 'pending'   ? 'bg-amber-100 text-amber-700' :
-              'bg-gray-100 text-gray-600'
+              currentStatus === 'rejected'  ? 'bg-red-100 text-red-700' :
+              'bg-amber-100 text-amber-700'
             }`}>
               {currentStatus === 'completed' ? '✓ Selesai' :
                currentStatus === 'approved'  ? '● Diproses' :
-               currentStatus === 'pending'   ? '○ Menunggu' : currentStatus}
+               currentStatus === 'rejected'  ? '✕ Ditolak' : '○ Menunggu'}
             </span>
           </div>
         </div>
@@ -234,10 +297,10 @@ export function ResponseForm({ request, existingResponses }: Props) {
           <BloodProductsRequested req={request} />
         </div>
 
-        {currentStatus !== 'completed' && responses.length > 0 && (
+        {currentStatus !== 'completed' && currentStatus !== 'rejected' && responses.length > 0 && (
           <div className="mt-5 pt-5 border-t border-gray-100 flex items-center justify-between flex-wrap gap-3">
             <p className="text-sm text-gray-600">
-              <strong>{responses.length} kantong</strong> darah telah dicatat. Tandai permintaan sebagai selesai?
+              <strong>{responses.length} kantong</strong> darah telah dicatat. Tandai sebagai selesai?
             </p>
             <button
               id="mark-done-btn"
@@ -277,9 +340,7 @@ export function ResponseForm({ request, existingResponses }: Props) {
                   <tr key={r.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 font-mono font-bold text-gray-900">{r.bag_number}</td>
                     <td className="px-4 py-3 text-gray-600 text-xs">{r.collection_date ? new Date(r.collection_date).toLocaleDateString('id-ID', { dateStyle: 'medium' }) : '—'}</td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-700">{r.blood_category ?? '—'}</span>
-                    </td>
+                    <td className="px-4 py-3"><span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-700">{r.blood_category ?? '—'}</span></td>
                     <td className="px-4 py-3 font-semibold text-gray-800">{r.volume_cc ?? '—'}</td>
                     <td className="px-4 py-3 font-bold text-gray-900">{r.blood_type_abo ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600">{r.rhesus ?? '—'}</td>
@@ -296,226 +357,206 @@ export function ResponseForm({ request, existingResponses }: Props) {
         </div>
       )}
 
-      {/* ── Add Response Form ── */}
-      {currentStatus !== 'completed' && (
+      {/* ── Response Panel ── */}
+      {!isFinished && (
         <div className="card p-6">
-          <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center gap-3 mb-5">
             <div className="w-8 h-8 rounded-lg gradient-brand flex items-center justify-center text-white text-sm font-bold"
               style={{ boxShadow: '0 4px 12px rgba(220,38,38,0.3)' }}>
-              +
+              ✎
             </div>
             <div>
-              <h3 className="font-display font-bold text-gray-900">Tambah Data Kantong Darah</h3>
-              <p className="text-xs text-gray-400">Sesuai logbook UTD / Bank Darah</p>
+              <h3 className="font-display font-bold text-gray-900">Respons Permintaan</h3>
+              <p className="text-xs text-gray-400">Pilih apakah darah tersedia atau tidak</p>
             </div>
           </div>
 
-          {successCount > 0 && (
-            <div className="alert alert-success mb-5">
-              ✅ {successCount} kantong darah berhasil dicatat.
-            </div>
+          {/* ── Availability Toggle ── */}
+          <AvailabilityToggle available={isAvailable} onChange={setIsAvailable} />
+
+          {error && <div className="alert alert-error mb-5">⚠️ {error}</div>}
+
+          {/* ─────── Darah TIDAK TERSEDIA ─────── */}
+          {!isAvailable && (
+            <form onSubmit={handleSendRejection} className="space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                <p className="text-sm font-bold text-red-700 mb-3 flex items-center gap-2">
+                  <span>❌</span> Status: Darah Tidak Tersedia
+                </p>
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">
+                    Keterangan / Alasan
+                  </label>
+                  <textarea
+                    id="rejection-notes-input"
+                    className="input-field"
+                    rows={4}
+                    placeholder="Contoh: Stok golongan darah O+ habis. Akan diinformasikan kembali apabila stok tersedia."
+                    value={rejectionNotes}
+                    onChange={e => setRejectionNotes(e.target.value)}
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                id="send-rejection-btn"
+                disabled={sendingRejection}
+                className="w-full py-3 px-6 rounded-xl font-bold text-sm text-white transition-all"
+                style={{ background: 'linear-gradient(135deg, #b91c1c, #7f1d1d)' }}
+              >
+                {sendingRejection ? <><span className="spinner" /> Mengirim...</> : '✕ Kirim Status Tidak Tersedia'}
+              </button>
+            </form>
           )}
-          {error && (
-            <div className="alert alert-error mb-5">⚠️ {error}</div>
-          )}
 
-          <form onSubmit={handleSubmit} id="response-form" className="space-y-6">
-
-            {/* ── Data Kantong ── */}
-            <div>
-              <p className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-lg bg-red-100 text-red-600 flex items-center justify-center text-xs font-black">A</span>
-                Data Kantong Darah
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <Label required>Nomor Kantong</Label>
-                  <input
-                    id="bag-number-input"
-                    type="text"
-                    className="input-field font-mono font-bold"
-                    placeholder="e.g. UTD-2024-001234"
-                    value={form.bag_number}
-                    onChange={e => update('bag_number', e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Tanggal Pengambilan</Label>
-                  <input
-                    id="collection-date-input"
-                    type="date"
-                    className="input-field"
-                    value={form.collection_date}
-                    onChange={e => update('collection_date', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label>Jenis Produk Darah</Label>
-                  <select
-                    id="blood-category-select"
-                    className="input-field"
-                    value={form.blood_category}
-                    onChange={e => update('blood_category', e.target.value)}
-                  >
-                    <option value="">-- Pilih Jenis --</option>
-                    {BLOOD_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <Label>Jumlah (cc / Kantong)</Label>
-                  <input
-                    id="volume-cc-input"
-                    type="text"
-                    className="input-field"
-                    placeholder="e.g. 250 cc"
-                    value={form.volume_cc}
-                    onChange={e => update('volume_cc', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label>Golongan Darah ABO</Label>
-                  <div className="flex gap-2">
-                    {BLOOD_TYPES.map(t => (
-                      <button
-                        key={t}
-                        type="button"
-                        id={`resp-blood-type-${t}`}
-                        onClick={() => update('blood_type_abo', t)}
-                        className={`flex-1 py-2 text-sm font-bold rounded-lg border-2 transition-all ${
-                          form.blood_type_abo === t
-                            ? 'border-red-500 bg-red-600 text-white'
-                            : 'border-gray-200 text-gray-500 hover:border-red-200'
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <Label>Rhesus</Label>
-                  <div className="flex gap-2">
-                    {RHESUS_OPTIONS.map(r => (
-                      <button
-                        key={r}
-                        type="button"
-                        id={`resp-rhesus-${r}`}
-                        onClick={() => update('rhesus', r)}
-                        className={`flex-1 py-2 text-sm font-semibold rounded-lg border-2 transition-all ${
-                          form.rhesus === r
-                            ? 'border-red-500 bg-red-600 text-white'
-                            : 'border-gray-200 text-gray-500 hover:border-red-200'
-                        }`}
-                      >
-                        {r}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <hr className="border-gray-100" />
-
-            {/* ── Petugas Pengeluaran ── */}
-            <div>
-              <p className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black">B</span>
-                Petugas Pengeluaran (ATD/PTTD)
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label>Nama Petugas</Label>
-                  <input
-                    id="officer-name-input"
-                    type="text"
-                    className="input-field"
-                    placeholder="Nama petugas ATD/PTTD"
-                    value={form.officer_name}
-                    onChange={e => update('officer_name', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label>Tanggal Pengeluaran</Label>
-                  <input
-                    id="release-date-input"
-                    type="date"
-                    className="input-field"
-                    value={form.release_date}
-                    onChange={e => update('release_date', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label>Jam Pengeluaran</Label>
-                  <input
-                    id="release-time-input"
-                    type="time"
-                    className="input-field"
-                    value={form.release_time}
-                    onChange={e => update('release_time', e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <hr className="border-gray-100" />
-
-            {/* ── Penerima + Signature ── */}
-            <div>
-              <p className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-black">C</span>
-                Data Penerima
-              </p>
-              <div className="space-y-4">
-                <div>
-                  <Label>Nama Penerima (Keluarga / Petugas Pengambil)</Label>
-                  <input
-                    id="receiver-name-input"
-                    type="text"
-                    className="input-field"
-                    placeholder="Nama lengkap penerima darah"
-                    value={form.receiver_name}
-                    onChange={e => update('receiver_name', e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <Label>Tanda Tangan Penerima</Label>
-                  <SignaturePad onSave={handleSignatureSave} onClear={handleSignatureClear} />
-                  {signature && (
-                    <div className="mt-2 p-2 bg-green-50 rounded-lg border border-green-200 flex items-center gap-2">
-                      <span className="text-green-600 text-xs font-bold">✓ Tanda tangan terekam</span>
-                      {/* Preview */}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={signature} alt="TTD" className="h-8 ml-auto" />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              id="save-response-btn"
-              disabled={submitting}
-              className="btn-primary w-full justify-center"
-            >
-              {submitting ? (
-                <><span className="spinner" /> Menyimpan...</>
-              ) : (
-                '+ Simpan Data Kantong Darah'
+          {/* ─────── Darah TERSEDIA ─────── */}
+          {isAvailable && (
+            <>
+              {successCount > 0 && (
+                <div className="alert alert-success mb-5">✅ {successCount} kantong darah berhasil dicatat.</div>
               )}
-            </button>
-          </form>
+
+              <form onSubmit={handleSubmit} id="response-form" className="space-y-6">
+                {/* ── A: Data Kantong ── */}
+                <div>
+                  <p className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-lg bg-red-100 text-red-600 flex items-center justify-center text-xs font-black">A</span>
+                    Data Kantong Darah
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <Label required>Nomor Kantong</Label>
+                      <input id="bag-number-input" type="text" className="input-field font-mono font-bold"
+                        placeholder="e.g. UTD-2024-001234" value={form.bag_number}
+                        onChange={e => update('bag_number', e.target.value)} required />
+                    </div>
+                    <div>
+                      <Label>Tanggal Pengambilan</Label>
+                      <input id="collection-date-input" type="date" className="input-field"
+                        value={form.collection_date} onChange={e => update('collection_date', e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Jenis Produk Darah</Label>
+                      <select id="blood-category-select" className="input-field"
+                        value={form.blood_category} onChange={e => update('blood_category', e.target.value)}>
+                        <option value="">-- Pilih Jenis --</option>
+                        {BLOOD_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <Label>Jumlah (cc / Kantong)</Label>
+                      <input id="volume-cc-input" type="text" className="input-field"
+                        placeholder="e.g. 250 cc" value={form.volume_cc}
+                        onChange={e => update('volume_cc', e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Golongan Darah ABO</Label>
+                      <div className="flex gap-2">
+                        {BLOOD_TYPES.map(t => (
+                          <button key={t} type="button" id={`resp-blood-type-${t}`}
+                            onClick={() => update('blood_type_abo', t)}
+                            className={`flex-1 py-2 text-sm font-bold rounded-lg border-2 transition-all ${
+                              form.blood_type_abo === t ? 'border-red-500 bg-red-600 text-white' : 'border-gray-200 text-gray-500 hover:border-red-200'
+                            }`}>{t}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Rhesus</Label>
+                      <div className="flex gap-2">
+                        {RHESUS_OPTIONS.map(r => (
+                          <button key={r} type="button" id={`resp-rhesus-${r}`}
+                            onClick={() => update('rhesus', r)}
+                            className={`flex-1 py-2 text-sm font-semibold rounded-lg border-2 transition-all ${
+                              form.rhesus === r ? 'border-red-500 bg-red-600 text-white' : 'border-gray-200 text-gray-500 hover:border-red-200'
+                            }`}>{r}</button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <hr className="border-gray-100" />
+
+                {/* ── B: Petugas ── */}
+                <div>
+                  <p className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black">B</span>
+                    Petugas Pengeluaran (ATD/PTTD)
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label>Nama Petugas</Label>
+                      <input id="officer-name-input" type="text" className="input-field"
+                        placeholder="Nama petugas ATD/PTTD" value={form.officer_name}
+                        onChange={e => update('officer_name', e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Tanggal Pengeluaran</Label>
+                      <input id="release-date-input" type="date" className="input-field"
+                        value={form.release_date} onChange={e => update('release_date', e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Jam Pengeluaran</Label>
+                      <input id="release-time-input" type="time" className="input-field"
+                        value={form.release_time} onChange={e => update('release_time', e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+
+                <hr className="border-gray-100" />
+
+                {/* ── C: Penerima + Signature ── */}
+                <div>
+                  <p className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-black">C</span>
+                    Data Penerima
+                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Nama Penerima (Keluarga / Petugas Pengambil)</Label>
+                      <input id="receiver-name-input" type="text" className="input-field"
+                        placeholder="Nama lengkap penerima darah" value={form.receiver_name}
+                        onChange={e => update('receiver_name', e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Tanda Tangan Penerima</Label>
+                      <SignaturePad onSave={handleSignatureSave} onClear={handleSignatureClear} />
+                      {signature && (
+                        <div className="mt-2 p-2 bg-green-50 rounded-lg border border-green-200 flex items-center gap-2">
+                          <span className="text-green-600 text-xs font-bold">✓ Tanda tangan terekam</span>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={signature} alt="TTD" className="h-8 ml-auto" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <button type="submit" id="save-response-btn" disabled={submitting}
+                  className="btn-primary w-full justify-center">
+                  {submitting ? <><span className="spinner" /> Menyimpan...</> : '+ Simpan Data Kantong Darah'}
+                </button>
+              </form>
+            </>
+          )}
         </div>
       )}
 
+      {/* ── Done states ── */}
       {currentStatus === 'completed' && (
-        <div className="card p-6 text-center bg-green-50 border-green-200">
+        <div className="card p-6 text-center" style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
           <p className="text-4xl mb-2">✅</p>
           <p className="font-display text-lg font-bold text-green-700">Permintaan Selesai</p>
           <p className="text-green-600 text-sm mt-1">{responses.length} kantong darah telah diberikan.</p>
+        </div>
+      )}
+
+      {currentStatus === 'rejected' && rejectionSent && (
+        <div className="card p-6 text-center" style={{ background: '#fff1f2', borderColor: '#fecdd3' }}>
+          <p className="text-4xl mb-2">❌</p>
+          <p className="font-display text-lg font-bold text-red-700">Status: Tidak Tersedia</p>
+          <p className="text-red-600 text-sm mt-1 max-w-sm mx-auto">{rejectionNotes || 'Darah tidak tersedia.'}</p>
         </div>
       )}
     </div>

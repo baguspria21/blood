@@ -72,7 +72,7 @@ export default async function RumahSakitDashboardPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  {['Pasien', 'Gol. Darah', 'Tgl Minta', 'Tgl Diperlukan', 'Status', 'Detail'].map(h => (
+                  {['Pasien', 'Gol. Darah', 'Tgl Minta', 'Tgl Diperlukan', 'Status', 'Cetak'].map(h => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                       {h}
                     </th>
@@ -99,7 +99,15 @@ export default async function RumahSakitDashboardPage() {
                     </td>
                     <td className="px-5 py-3"><StatusBadge status={req.status} /></td>
                     <td className="px-5 py-3">
-                      <span className="text-xs text-gray-400 font-mono">{req.id.slice(0, 8)}…</span>
+                      <a
+                        href={`/api/v1/pdf/transfusion-request/${req.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        id={`cetak-${req.id}`}
+                        className="text-xs font-bold text-red-600 border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50 transition-colors whitespace-nowrap"
+                      >
+                        🖨 Cetak
+                      </a>
                     </td>
                   </tr>
                 ))}

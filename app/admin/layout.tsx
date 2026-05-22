@@ -78,6 +78,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             >
               Relawan
             </Link>
+            <Link
+              href="/admin/profil"
+              id="admin-nav-profil"
+              className="text-sm font-medium text-gray-600 px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors"
+            >
+              Profil
+            </Link>
           </nav>
 
           <div className="flex items-center gap-3">

@@ -30,14 +30,26 @@ export default async function AdminTransfusiDetailPage({
 
   return (
     <div className="space-y-4">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-gray-500">
-        <Link href="/admin" className="hover:text-red-600 transition-colors">Dashboard</Link>
-        <span>›</span>
-        <Link href="/admin/transfusi" className="hover:text-red-600 transition-colors">Transfusi</Link>
-        <span>›</span>
-        <span className="text-gray-800 font-medium">{request.patient_name}</span>
-      </nav>
+      {/* Breadcrumb + Print */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <nav className="flex items-center gap-2 text-sm text-gray-500">
+          <Link href="/admin" className="hover:text-red-600 transition-colors">Dashboard</Link>
+          <span>›</span>
+          <Link href="/admin/transfusi" className="hover:text-red-600 transition-colors">Transfusi</Link>
+          <span>›</span>
+          <span className="text-gray-800 font-medium">{request.patient_name}</span>
+        </nav>
+        <a
+          href={`/api/v1/pdf/transfusion-response/${request.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          id="cetak-surat-pengeluaran-btn"
+          className="text-sm font-bold text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-opacity hover:opacity-90"
+          style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)', boxShadow: '0 2px 8px rgba(220,38,38,0.3)' }}
+        >
+          🖨 Cetak Surat Pengeluaran
+        </a>
+      </div>
 
       {/* Response form (client component) */}
       <ResponseForm request={request} existingResponses={responses ?? []} />
