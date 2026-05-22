@@ -72,7 +72,10 @@ export default function LoginPage() {
       // ── 3. Mark done BEFORE navigating — prevents any re-entry ─────
       redirected.current = true
 
-      const destination = profile?.role === 'admin' ? '/admin' : '/relawan/dashboard'
+      const destination =
+        profile?.role === 'admin'    ? '/admin' :
+        profile?.role === 'hospital' ? '/rumah-sakit/dashboard' :
+        '/relawan/dashboard'
 
       // Use hard navigation (window.location) instead of router.push.
       // This guarantees the proxy runs fresh with the new auth cookie.

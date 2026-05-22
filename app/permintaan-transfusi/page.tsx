@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -19,7 +19,6 @@ const RHESUS_OPTIONS = [
   { value: '-' as Rhesus, label: 'Negatif (−)' },
 ]
 const KELAS_OPTIONS = ['I', 'II', 'III', 'VIP', 'VVIP']
-const MAX_FILE_SIZE_MB = 5
 
 // ─── Helper Components ────────────────────────────────────────────────────────
 function BloodDropIcon({ size = 20, className = '' }: { size?: number; className?: string }) {
@@ -135,7 +134,6 @@ function YesNoToggle({
 export default function PermintaanTransfusiPage() {
   const [hospitals, setHospitals] = useState<Hospital[]>([])
   const [loadingHospitals, setLoadingHospitals] = useState(true)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // ── Section 1: Identitas ────────────────────────────────────────────────
   const [requestingHospital, setRequestingHospital] = useState('')
@@ -198,10 +196,6 @@ export default function PermintaanTransfusiPage() {
   const [factorBuffy, setFactorBuffy] = useState('')
   const [factorOther, setFactorOther] = useState('')
 
-  // ── Section 6: Upload ──────────────────────────────────────────────────
-  const [proofFile, setProofFile] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-
   // ── Submit state ───────────────────────────────────────────────────────
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -214,17 +208,6 @@ export default function PermintaanTransfusiPage() {
       .then(d => { setHospitals(d.hospitals ?? []); setLoadingHospitals(false) })
       .catch(() => setLoadingHospitals(false))
   }, [])
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null
-    if (!file) { setProofFile(null); setPreviewUrl(null); return }
-    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-      setError(`Ukuran file maksimal ${MAX_FILE_SIZE_MB} MB.`); return
-    }
-    setError(null)
-    setProofFile(file)
-    setPreviewUrl(file.type.startsWith('image/') ? URL.createObjectURL(file) : null)
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -299,9 +282,6 @@ export default function PermintaanTransfusiPage() {
       if (factorCryo) fd.append('factor_cryoprecipitate_bags', factorCryo)
       if (factorBuffy) fd.append('factor_buffycoat_bags', factorBuffy)
       if (factorOther) fd.append('factor_other', factorOther)
-
-      // File
-      if (proofFile) fd.append('proof_file', proofFile)
 
       const res = await fetch('/api/v1/transfusion-requests', { method: 'POST', body: fd })
       const json = await res.json()
@@ -988,58 +968,6 @@ export default function PermintaanTransfusiPage() {
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* ═══════════════════════════════════════════════════════════
-              SECTION 6 — SURAT PENGANTAR / BUKTI
-          ════════════════════════════════════════════════════════════ */}
-          <div className="card p-6">
-            <SectionHeader num={6} title="Surat Pengantar / Bukti" subtitle="Upload foto surat permintaan transfusi dari dokter" />
-
-            <input
-              ref={fileInputRef}
-              id="proof-file-input"
-              type="file"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-
-            {proofFile ? (
-              <div className="rounded-xl border-2 border-green-300 bg-green-50 overflow-hidden">
-                {previewUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={previewUrl} alt="Preview surat" className="w-full max-h-52 object-contain bg-white" />
-                ) : (
-                  <div className="flex items-center gap-3 px-4 py-3">
-                    <span className="text-2xl">📄</span>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-gray-800 text-sm truncate">{proofFile.name}</p>
-                      <p className="text-xs text-gray-400">{(proofFile.size / 1024).toFixed(1)} KB</p>
-                    </div>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  id="change-proof-btn"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-2 text-sm text-green-700 font-semibold bg-green-50 hover:bg-green-100 border-t border-green-200 transition-colors"
-                >
-                  ✏️ Ganti File
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                id="upload-proof-btn"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full border-2 border-dashed border-gray-300 rounded-xl py-10 flex flex-col items-center gap-2 text-gray-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50/40 transition-all"
-              >
-                <span className="text-4xl">📎</span>
-                <span className="font-semibold text-sm">Klik untuk upload Surat Pengantar</span>
-                <span className="text-xs">JPG, PNG, PDF · Maks. {MAX_FILE_SIZE_MB} MB</span>
-              </button>
-            )}
           </div>
 
           {/* ═══════════════════════════════════════════════════════════

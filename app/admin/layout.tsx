@@ -58,18 +58,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               Dashboard
             </Link>
             <Link
-              href="/admin/permintaan"
-              id="admin-nav-requests"
+              href="/admin/transfusi"
+              id="admin-nav-transfusi"
               className="text-sm font-medium text-gray-600 px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors"
             >
-              Permintaan
-            </Link>
-            <Link
-              href="/admin/inventaris"
-              id="admin-nav-inventory"
-              className="text-sm font-medium text-gray-600 px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors"
-            >
-              Stok Darah
+              Transfusi
             </Link>
             <Link
               href="/admin/donasi"

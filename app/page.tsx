@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { createSupabaseServerClient } from '@/lib/supabaseServer'
 
 function BloodDropIcon({ size = 24, className = '' }: { size?: number; className?: string }) {
   return (
@@ -9,149 +8,159 @@ function BloodDropIcon({ size = 24, className = '' }: { size?: number; className
   )
 }
 
-export default async function HomePage() {
-  const supabase = await createSupabaseServerClient()
-  const { data: inventory } = await supabase.from('blood_inventory').select('blood_type, rhesus, bags_count')
-  
-  // Initialize all 8 specific types
-  const allTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
-  const totals: Record<string, number> = {}
-  allTypes.forEach(t => totals[t] = 0)
-
-  ;(inventory ?? []).forEach((row) => {
-    const key = `${row.blood_type}${row.rhesus}`
-    if (key in totals) {
-      totals[key] += row.bags_count
-    }
-  })
-
-  const TYPE_COLORS: Record<string, string> = {
-    'A+': '#dc2626', 'A-': '#ef4444',
-    'B+': '#2563eb', 'B-': '#3b82f6',
-    'AB+': '#7c3aed', 'AB-': '#8b5cf6',
-    'O+': '#16a34a', 'O-': '#22c55e',
-  }
-
+function HospitalIcon({ size = 24, className = '' }: { size?: number; className?: string }) {
   return (
-    <div className="min-h-screen flex flex-col"
-      style={{ background: 'linear-gradient(160deg, #fff1f2 0%, #ffffff 50%, #fff1f2 100%)' }}>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+    </svg>
+  )
+}
+
+function HeartIcon({ size = 24, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/>
+    </svg>
+  )
+}
+
+export default function HomePage() {
+  return (
+    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(160deg, #0f172a 0%, #1e1b4b 40%, #1a0a0a 100%)' }}>
+
+      {/* ── Decorative orbs ── */}
+      <div aria-hidden className="fixed top-0 right-0 w-[500px] h-[500px] rounded-full pointer-events-none opacity-20"
+        style={{ background: 'radial-gradient(circle, #dc2626 0%, transparent 70%)', transform: 'translate(20%, -20%)' }} />
+      <div aria-hidden className="fixed bottom-0 left-0 w-[400px] h-[400px] rounded-full pointer-events-none opacity-15"
+        style={{ background: 'radial-gradient(circle, #7c3aed 0%, transparent 70%)', transform: 'translate(-20%, 20%)' }} />
+      <div aria-hidden className="fixed top-1/2 left-1/2 w-[600px] h-[600px] rounded-full pointer-events-none opacity-5"
+        style={{ background: 'radial-gradient(circle, #dc2626 0%, transparent 70%)', transform: 'translate(-50%, -50%)' }} />
 
       {/* ── Nav ── */}
-      <nav className="px-5 py-4 flex items-center justify-between max-w-5xl mx-auto w-full">
+      <nav className="relative z-10 px-6 py-5 flex items-center justify-between max-w-6xl mx-auto w-full">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl gradient-brand flex items-center justify-center pulse-blood"
-            style={{ boxShadow: '0 4px 14px rgba(220,38,38,0.35)' }}>
+            style={{ boxShadow: '0 4px 14px rgba(220,38,38,0.5)' }}>
             <BloodDropIcon size={16} className="text-white" />
           </div>
-          <span className="font-display font-bold text-gray-900 text-lg">
+          <span className="font-display font-bold text-white text-lg">
             Blood<span className="text-gradient">Connect</span>
             <span className="text-gray-400 font-medium text-sm ml-1">Palu</span>
           </span>
         </div>
         <div className="flex gap-3">
           <Link href="/login" id="nav-login-btn"
-            className="text-sm font-semibold text-red-600 px-4 py-2 rounded-lg hover:bg-red-50 transition-colors">
+            className="text-sm font-semibold text-gray-300 px-4 py-2 rounded-lg hover:text-white hover:bg-white/10 transition-all">
             Masuk
-          </Link>
-          <Link href="/daftar" id="nav-register-btn"
-            className="text-sm font-semibold text-white px-4 py-2 rounded-lg gradient-brand transition-opacity hover:opacity-90"
-            style={{ boxShadow: '0 4px 12px rgba(220,38,38,0.35)' }}>
-            Daftar
           </Link>
         </div>
       </nav>
 
       {/* ── Hero ── */}
-      <main className="flex-1 flex flex-col items-center justify-center px-5 py-16 text-center max-w-4xl mx-auto">
-        <div className="w-24 h-24 rounded-3xl gradient-brand flex items-center justify-center mb-8 pulse-blood mx-auto"
-          style={{ boxShadow: '0 12px 40px rgba(220,38,38,0.4)' }}>
-          <BloodDropIcon size={44} className="text-white" />
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-16 text-center max-w-4xl mx-auto w-full">
+
+        {/* Badge */}
+        <div className="inline-flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold px-4 py-2 rounded-full mb-8 uppercase tracking-widest">
+          <span className="w-1.5 h-1.5 bg-red-400 rounded-full animate-pulse" />
+          Platform Donor Darah — Kota Palu
         </div>
 
-        <h1 className="font-display text-4xl md:text-5xl font-bold text-gray-900 leading-tight mb-4">
+        {/* Headline */}
+        <h1 className="font-display text-5xl md:text-6xl font-bold text-white leading-tight mb-6">
           Setiap Tetes Darah<br />
           <span className="text-gradient">Menyelamatkan Jiwa</span>
         </h1>
 
-        <p className="text-gray-500 text-lg mb-10 max-w-md mx-auto">
-          Platform penghubung cepat antara pemohon darah darurat dengan relawan pendonor di Kota Palu.
+        <p className="text-gray-400 text-lg mb-16 max-w-xl mx-auto leading-relaxed">
+          Platform penghubung antara Rumah Sakit yang membutuhkan darah dengan relawan pendonor di Kota Palu — cepat, terverifikasi, dan terpercaya.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-sm mx-auto">
-          <Link href="/darurat" id="hero-emergency-btn"
-            className="btn-primary flex-1 justify-center">
-            <BloodDropIcon size={18} />
-            Butuh Darah Sekarang
-          </Link>
-          <Link href="/daftar" id="hero-volunteer-btn"
-            className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 rounded-[0.875rem] border-2 border-red-200 text-red-600 font-semibold hover:bg-red-50 transition-colors">
-            Jadi Relawan
-          </Link>
-        </div>
+        {/* ── Dual Portal Cards ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
 
-        {/* Transfusion Form CTA */}
-        <div className="w-full max-w-sm mx-auto mt-3">
-          <Link
-            href="/permintaan-transfusi"
-            id="hero-transfusion-btn"
-            className="group flex items-center gap-3 w-full px-5 py-3.5 rounded-[0.875rem] border-2 border-dashed border-red-200 text-gray-600 hover:border-red-400 hover:bg-red-50 hover:text-red-700 transition-all font-medium text-sm"
-          >
-            <span className="w-8 h-8 rounded-lg bg-red-50 group-hover:bg-red-100 flex items-center justify-center flex-shrink-0 transition-colors">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-500">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </span>
-            <div className="text-left">
-              <p className="font-semibold leading-tight">Surat Permintaan Transfusi</p>
-              <p className="text-xs text-gray-400 mt-0.5">Formulir lengkap untuk RSUD / Bank Darah</p>
+          {/* Hospital Portal */}
+          <div className="group relative rounded-3xl overflow-hidden border border-white/10"
+            style={{ background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(20px)' }}>
+            {/* Glow */}
+            <div className="absolute inset-0 bg-gradient-to-br from-red-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+            <div className="relative p-8 flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
+                style={{ background: 'linear-gradient(135deg, rgba(220,38,38,0.3), rgba(185,28,28,0.15))', border: '1px solid rgba(220,38,38,0.3)' }}>
+                <HospitalIcon size={28} className="text-red-400" />
+              </div>
+
+              <span className="text-xs font-bold text-red-400 uppercase tracking-widest mb-2">Portal Rumah Sakit</span>
+              <h2 className="font-display text-xl font-bold text-white mb-3">Butuh Darah?</h2>
+              <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                Ajukan surat permintaan transfusi darah secara digital. Diproses langsung oleh tim UTD / Bank Darah.
+              </p>
+
+              <div className="flex flex-col gap-3 w-full">
+                <Link href="/login" id="hospital-login-btn"
+                  className="w-full py-3 px-5 rounded-xl font-bold text-sm text-white transition-all"
+                  style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)', boxShadow: '0 4px 14px rgba(220,38,38,0.4)' }}>
+                  Masuk — Portal RS
+                </Link>
+                <Link href="/daftar-rs" id="hospital-register-btn"
+                  className="w-full py-3 px-5 rounded-xl font-bold text-sm text-red-400 border border-red-500/30 hover:border-red-400 hover:bg-red-500/10 transition-all">
+                  Daftarkan Rumah Sakit
+                </Link>
+              </div>
             </div>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="ml-auto flex-shrink-0 text-gray-400 group-hover:text-red-500 transition-colors">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
-        </div>
+          </div>
 
-        {/* Detailed Blood Stock Stats */}
-        <div className="w-full max-w-3xl mt-14 mb-8">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Stok Darah Tersedia (Kantong)</p>
-          <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
-            {allTypes.map((typeKey) => {
-              const bg = TYPE_COLORS[typeKey]
-              const total = totals[typeKey]
-              const bt = typeKey.slice(0, -1)
-              const rh = typeKey.slice(-1)
-              
-              return (
-                <div key={typeKey} className="card p-2.5 flex flex-col items-center border-2 border-transparent hover:border-red-100 transition-colors">
-                  <div className="w-9 h-9 rounded-lg flex flex-col items-center justify-center mb-2"
-                    style={{ background: bg, boxShadow: `0 4px 12px ${bg}40` }}>
-                    <span className="text-white font-display font-black text-xs leading-none">{bt}</span>
-                    <span className="font-bold text-[9px]" style={{ color: 'rgba(255,255,255,0.8)' }}>{rh}</span>
-                  </div>
-                  <p className="font-display text-xl font-bold text-gray-900 leading-none">{total}</p>
-                </div>
-              )
-            })}
+          {/* Volunteer Portal */}
+          <div className="group relative rounded-3xl overflow-hidden border border-white/10"
+            style={{ background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(20px)' }}>
+            {/* Glow */}
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+            <div className="relative p-8 flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
+                style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.3), rgba(91,33,182,0.15))', border: '1px solid rgba(124,58,237,0.3)' }}>
+                <HeartIcon size={26} className="text-purple-400" />
+              </div>
+
+              <span className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2">Portal Relawan</span>
+              <h2 className="font-display text-xl font-bold text-white mb-3">Ingin Berdonor?</h2>
+              <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                Daftarkan diri sebagai relawan pendonor darah. Terima notifikasi saat ada kebutuhan darah yang sesuai golongan Anda.
+              </p>
+
+              <div className="flex flex-col gap-3 w-full">
+                <Link href="/login" id="volunteer-login-btn"
+                  className="w-full py-3 px-5 rounded-xl font-bold text-sm text-white transition-all"
+                  style={{ background: 'linear-gradient(135deg, #7c3aed, #5b21b6)', boxShadow: '0 4px 14px rgba(124,58,237,0.4)' }}>
+                  Masuk — Portal Relawan
+                </Link>
+                <Link href="/daftar" id="volunteer-register-btn"
+                  className="w-full py-3 px-5 rounded-xl font-bold text-sm text-purple-400 border border-purple-500/30 hover:border-purple-400 hover:bg-purple-500/10 transition-all">
+                  Daftar Jadi Relawan
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Other Stats */}
-        <div className="grid grid-cols-3 gap-4 w-full max-w-md mx-auto">
+        {/* ── Stats strip ── */}
+        <div className="grid grid-cols-3 gap-6 w-full max-w-lg mt-16">
           {[
             { value: '500+', label: 'Relawan Aktif' },
             { value: '8', label: 'Rumah Sakit' },
-            { value: '90', label: 'Hari Cooldown' },
-          ].map((s) => (
-            <div key={s.label} className="card p-4 text-center">
-              <p className="font-display text-2xl font-bold text-gradient">{s.value}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
+            { value: '24/7', label: 'Siaga Penuh' },
+          ].map(s => (
+            <div key={s.label} className="text-center">
+              <p className="font-display text-2xl font-bold text-white">{s.value}</p>
+              <p className="text-xs text-gray-500 mt-1 font-medium uppercase tracking-wide">{s.label}</p>
             </div>
           ))}
         </div>
       </main>
 
-      <footer className="text-center text-xs text-gray-400 py-5">
-        © 2025 Blood-Connect Palu &middot; Didukung oleh PMI Kota Palu
+      {/* ── Footer ── */}
+      <footer className="relative z-10 text-center text-xs text-gray-600 py-6">
+        © 2025 Blood-Connect Palu · Didukung oleh PMI Kota Palu
       </footer>
     </div>
   )
