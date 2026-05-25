@@ -52,7 +52,7 @@ export default async function VolunteerDashboard() {
         style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)' }}
       >
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 no-underline">
+          <Link href="/relawan/dashboard" className="flex items-center gap-2.5 no-underline">
             <div
               className="w-8 h-8 rounded-lg gradient-brand flex items-center justify-center flex-shrink-0"
               style={{ boxShadow: '0 2px 8px rgba(220,38,38,0.3)' }}
@@ -144,8 +144,6 @@ export default async function VolunteerDashboard() {
           </div>
         </div>
 
-        {/* Blood Stock Widget */}
-        <BloodStockWidget />
 
         {/* Volunteer-Initiated Donation */}
         <DonateButton canDonate={canDonate} cooldownRemaining={cooldownRemaining} />

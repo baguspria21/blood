@@ -88,7 +88,7 @@ export function DonateButton({
           >
             <span className="text-white text-2xl">🩸</span>
           </div>
-          <div className="flex-1">
+          <div className="flex-">
             <h2 className="font-display font-bold text-gray-900">Ingin Donor Hari Ini?</h2>
             <p className="text-sm text-gray-500">
               {!canDonate

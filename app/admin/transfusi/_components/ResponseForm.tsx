@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { SignaturePad } from '../_components/SignaturePad'
+import { useState, useRef } from 'react'
+import { SignaturePad, type SignaturePadHandle } from '../_components/SignaturePad'
 
+// ── Types ──────────────────────────────────────────────────────────────────────
 interface TransfusionRequest {
   id: string
   patient_name: string
@@ -53,6 +54,7 @@ interface Props {
   existingResponses: TransfusionResponse[]
 }
 
+// ── Sub-components ─────────────────────────────────────────────────────────────
 function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
   return (
     <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">
@@ -90,52 +92,32 @@ function BloodProductsRequested({ req }: { req: TransfusionRequest }) {
   return (
     <div className="flex flex-wrap gap-2">
       {products.map((p, i) => (
-        <span key={i} className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-100">
-          {p}
-        </span>
+        <span key={i} className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-100">{p}</span>
       ))}
     </div>
   )
 }
 
-// ── Availability Toggle ───────────────────────────────────────────────────────
-function AvailabilityToggle({
-  available,
-  onChange,
-}: {
-  available: boolean
-  onChange: (v: boolean) => void
-}) {
+function AvailabilityToggle({ available, onChange }: { available: boolean; onChange: (v: boolean) => void }) {
   return (
     <div className="flex gap-3 mb-6">
-      <button
-        type="button"
-        id="blood-available-btn"
-        onClick={() => onChange(true)}
+      <button type="button" id="blood-available-btn" onClick={() => onChange(true)}
         className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-center gap-2 ${
-          available
-            ? 'border-green-500 bg-green-600 text-white shadow-sm'
-            : 'border-gray-200 text-gray-500 hover:border-green-200 hover:text-green-600'
-        }`}
-      >
+          available ? 'border-green-500 bg-green-600 text-white shadow-sm' : 'border-gray-200 text-gray-500 hover:border-green-200 hover:text-green-600'
+        }`}>
         ✅ Darah Tersedia
       </button>
-      <button
-        type="button"
-        id="blood-unavailable-btn"
-        onClick={() => onChange(false)}
+      <button type="button" id="blood-unavailable-btn" onClick={() => onChange(false)}
         className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-center gap-2 ${
-          !available
-            ? 'border-red-500 bg-red-600 text-white shadow-sm'
-            : 'border-gray-200 text-gray-500 hover:border-red-200 hover:text-red-600'
-        }`}
-      >
+          !available ? 'border-red-500 bg-red-600 text-white shadow-sm' : 'border-gray-200 text-gray-500 hover:border-red-200 hover:text-red-600'
+        }`}>
         ❌ Tidak Tersedia
       </button>
     </div>
   )
 }
 
+// ── Main Component ─────────────────────────────────────────────────────────────
 export function ResponseForm({ request, existingResponses }: Props) {
   const today = new Date().toISOString().split('T')[0]
   const now = new Date().toTimeString().slice(0, 5)
@@ -159,7 +141,6 @@ export function ResponseForm({ request, existingResponses }: Props) {
     release_time: now,
     receiver_name: '',
   })
-  const [signature, setSignature] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successCount, setSuccessCount] = useState(0)
@@ -167,11 +148,11 @@ export function ResponseForm({ request, existingResponses }: Props) {
   const [markingDone, setMarkingDone] = useState(false)
   const [currentStatus, setCurrentStatus] = useState(request.status)
 
+  // ── Imperative signature ref ───────────────────────────────────────────────
+  const sigRef = useRef<SignaturePadHandle>(null)
+
   const update = (key: keyof typeof form, value: string) =>
     setForm(prev => ({ ...prev, [key]: value }))
-
-  const handleSignatureSave = useCallback((dataUrl: string) => { setSignature(dataUrl) }, [])
-  const handleSignatureClear = useCallback(() => { setSignature(null) }, [])
 
   // ── Submit blood bag ───────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
@@ -180,6 +161,9 @@ export function ResponseForm({ request, existingResponses }: Props) {
     setError(null)
     setSubmitting(true)
 
+    // Grab signature from canvas ref at submit time
+    const receiverSignature = sigRef.current?.getDataURL() ?? null
+
     try {
       const res = await fetch('/api/v1/admin/transfusion-responses', {
         method: 'POST',
@@ -187,7 +171,7 @@ export function ResponseForm({ request, existingResponses }: Props) {
         body: JSON.stringify({
           transfusion_request_id: request.id,
           ...form,
-          receiver_signature: signature,
+          receiver_signature: receiverSignature,
         }),
       })
       const json = await res.json()
@@ -197,8 +181,9 @@ export function ResponseForm({ request, existingResponses }: Props) {
       setSuccessCount(c => c + 1)
       setCurrentStatus('approved')
 
+      // Reset form fields and clear canvas
       setForm(prev => ({ ...prev, bag_number: '', collection_date: today, volume_cc: '', receiver_name: '' }))
-      setSignature(null)
+      sigRef.current?.clear()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Terjadi kesalahan.')
     } finally {
@@ -249,7 +234,6 @@ export function ResponseForm({ request, existingResponses }: Props) {
   const BLOOD_TYPES = ['A', 'B', 'AB', 'O']
   const RHESUS_OPTIONS = ['Positif', 'Negatif']
   const BLOOD_CATEGORIES = ['PRC', 'Whole Blood', 'FFP', 'Thrombocyte Concentrate', 'Cryoprecipitate', 'Buffy Coat', 'Plasma Biasa']
-
   const isFinished = currentStatus === 'completed' || (currentStatus === 'rejected' && rejectionSent)
 
   return (
@@ -270,12 +254,10 @@ export function ResponseForm({ request, existingResponses }: Props) {
             )}
             <span className={`text-sm font-bold px-3 py-1.5 rounded-lg ${
               currentStatus === 'completed' ? 'bg-green-100 text-green-700' :
-              currentStatus === 'approved'  ? 'bg-blue-100 text-blue-700' :
-              currentStatus === 'rejected'  ? 'bg-red-100 text-red-700' :
-              'bg-amber-100 text-amber-700'
+              currentStatus === 'approved'  ? 'bg-blue-100 text-blue-700'  :
+              currentStatus === 'rejected'  ? 'bg-red-100 text-red-700'    : 'bg-amber-100 text-amber-700'
             }`}>
-              {currentStatus === 'completed' ? '✓ Selesai' :
-               currentStatus === 'approved'  ? '● Diproses' :
+              {currentStatus === 'completed' ? '✓ Selesai' : currentStatus === 'approved' ? '● Diproses' :
                currentStatus === 'rejected'  ? '✕ Ditolak' : '○ Menunggu'}
             </span>
           </div>
@@ -302,36 +284,28 @@ export function ResponseForm({ request, existingResponses }: Props) {
             <p className="text-sm text-gray-600">
               <strong>{responses.length} kantong</strong> darah telah dicatat. Tandai sebagai selesai?
             </p>
-            <button
-              id="mark-done-btn"
-              onClick={handleMarkDone}
-              disabled={markingDone}
+            <button id="mark-done-btn" onClick={handleMarkDone} disabled={markingDone}
               className="text-sm font-bold text-white px-5 py-2 rounded-lg transition-opacity hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg, #15803d, #166534)' }}
-            >
+              style={{ background: 'linear-gradient(135deg, #15803d, #166534)' }}>
               {markingDone ? '...' : '✓ Tandai Selesai'}
             </button>
           </div>
         )}
       </div>
 
-      {/* ── Existing Responses ── */}
+      {/* ── Existing Responses table ── */}
       {responses.length > 0 && (
         <div className="card overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
             <h3 className="font-display font-bold text-gray-900">Data Kantong Darah yang Diberikan</h3>
-            <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">
-              {responses.length} kantong
-            </span>
+            <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">{responses.length} kantong</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  {['No. Kantong', 'Tgl Ambil', 'Jenis', 'Volume', 'Gol. Darah', 'Rhesus', 'Petugas', 'Penerima', 'Jam Keluar'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                      {h}
-                    </th>
+                  {['No. Kantong', 'Tgl Ambil', 'Jenis', 'Volume', 'Gol.', 'Rh', 'Petugas', 'Penerima', 'Jam Keluar'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -339,16 +313,14 @@ export function ResponseForm({ request, existingResponses }: Props) {
                 {responses.map(r => (
                   <tr key={r.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 font-mono font-bold text-gray-900">{r.bag_number}</td>
-                    <td className="px-4 py-3 text-gray-600 text-xs">{r.collection_date ? new Date(r.collection_date).toLocaleDateString('id-ID', { dateStyle: 'medium' }) : '—'}</td>
+                    <td className="px-4 py-3 text-xs text-gray-600">{r.collection_date ? new Date(r.collection_date).toLocaleDateString('id-ID', { dateStyle: 'medium' }) : '—'}</td>
                     <td className="px-4 py-3"><span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-700">{r.blood_category ?? '—'}</span></td>
                     <td className="px-4 py-3 font-semibold text-gray-800">{r.volume_cc ?? '—'}</td>
                     <td className="px-4 py-3 font-bold text-gray-900">{r.blood_type_abo ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600">{r.rhesus ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-700">{r.officer_name ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-700">{r.receiver_name ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">
-                      {r.release_date && r.release_time ? `${new Date(r.release_date).toLocaleDateString('id-ID', { dateStyle: 'short' })} ${r.release_time}` : '—'}
-                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500">{r.release_date && r.release_time ? `${new Date(r.release_date).toLocaleDateString('id-ID', { dateStyle: 'short' })} ${r.release_time}` : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -362,21 +334,18 @@ export function ResponseForm({ request, existingResponses }: Props) {
         <div className="card p-6">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-8 h-8 rounded-lg gradient-brand flex items-center justify-center text-white text-sm font-bold"
-              style={{ boxShadow: '0 4px 12px rgba(220,38,38,0.3)' }}>
-              ✎
-            </div>
+              style={{ boxShadow: '0 4px 12px rgba(220,38,38,0.3)' }}>✎</div>
             <div>
               <h3 className="font-display font-bold text-gray-900">Respons Permintaan</h3>
               <p className="text-xs text-gray-400">Pilih apakah darah tersedia atau tidak</p>
             </div>
           </div>
 
-          {/* ── Availability Toggle ── */}
           <AvailabilityToggle available={isAvailable} onChange={setIsAvailable} />
 
           {error && <div className="alert alert-error mb-5">⚠️ {error}</div>}
 
-          {/* ─────── Darah TIDAK TERSEDIA ─────── */}
+          {/* ─── Tidak Tersedia ─── */}
           {!isAvailable && (
             <form onSubmit={handleSendRejection} className="space-y-4">
               <div className="bg-red-50 border border-red-200 rounded-xl p-4">
@@ -384,40 +353,28 @@ export function ResponseForm({ request, existingResponses }: Props) {
                   <span>❌</span> Status: Darah Tidak Tersedia
                 </p>
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">
-                    Keterangan / Alasan
-                  </label>
-                  <textarea
-                    id="rejection-notes-input"
-                    className="input-field"
-                    rows={4}
-                    placeholder="Contoh: Stok golongan darah O+ habis. Akan diinformasikan kembali apabila stok tersedia."
-                    value={rejectionNotes}
-                    onChange={e => setRejectionNotes(e.target.value)}
-                  />
+                  <Label>Keterangan / Alasan</Label>
+                  <textarea id="rejection-notes-input" className="input-field" rows={4}
+                    placeholder="Contoh: Stok golongan darah O+ habis..."
+                    value={rejectionNotes} onChange={e => setRejectionNotes(e.target.value)} />
                 </div>
               </div>
-              <button
-                type="submit"
-                id="send-rejection-btn"
-                disabled={sendingRejection}
+              <button type="submit" id="send-rejection-btn" disabled={sendingRejection}
                 className="w-full py-3 px-6 rounded-xl font-bold text-sm text-white transition-all"
-                style={{ background: 'linear-gradient(135deg, #b91c1c, #7f1d1d)' }}
-              >
+                style={{ background: 'linear-gradient(135deg, #b91c1c, #7f1d1d)' }}>
                 {sendingRejection ? <><span className="spinner" /> Mengirim...</> : '✕ Kirim Status Tidak Tersedia'}
               </button>
             </form>
           )}
 
-          {/* ─────── Darah TERSEDIA ─────── */}
+          {/* ─── Darah Tersedia ─── */}
           {isAvailable && (
             <>
-              {successCount > 0 && (
-                <div className="alert alert-success mb-5">✅ {successCount} kantong darah berhasil dicatat.</div>
-              )}
+              {successCount > 0 && <div className="alert alert-success mb-5">✅ {successCount} kantong darah berhasil dicatat.</div>}
 
               <form onSubmit={handleSubmit} id="response-form" className="space-y-6">
-                {/* ── A: Data Kantong ── */}
+
+                {/* A: Kantong */}
                 <div>
                   <p className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
                     <span className="w-6 h-6 rounded-lg bg-red-100 text-red-600 flex items-center justify-center text-xs font-black">A</span>
@@ -453,8 +410,7 @@ export function ResponseForm({ request, existingResponses }: Props) {
                       <Label>Golongan Darah ABO</Label>
                       <div className="flex gap-2">
                         {BLOOD_TYPES.map(t => (
-                          <button key={t} type="button" id={`resp-blood-type-${t}`}
-                            onClick={() => update('blood_type_abo', t)}
+                          <button key={t} type="button" id={`resp-blood-type-${t}`} onClick={() => update('blood_type_abo', t)}
                             className={`flex-1 py-2 text-sm font-bold rounded-lg border-2 transition-all ${
                               form.blood_type_abo === t ? 'border-red-500 bg-red-600 text-white' : 'border-gray-200 text-gray-500 hover:border-red-200'
                             }`}>{t}</button>
@@ -465,8 +421,7 @@ export function ResponseForm({ request, existingResponses }: Props) {
                       <Label>Rhesus</Label>
                       <div className="flex gap-2">
                         {RHESUS_OPTIONS.map(r => (
-                          <button key={r} type="button" id={`resp-rhesus-${r}`}
-                            onClick={() => update('rhesus', r)}
+                          <button key={r} type="button" id={`resp-rhesus-${r}`} onClick={() => update('rhesus', r)}
                             className={`flex-1 py-2 text-sm font-semibold rounded-lg border-2 transition-all ${
                               form.rhesus === r ? 'border-red-500 bg-red-600 text-white' : 'border-gray-200 text-gray-500 hover:border-red-200'
                             }`}>{r}</button>
@@ -478,7 +433,7 @@ export function ResponseForm({ request, existingResponses }: Props) {
 
                 <hr className="border-gray-100" />
 
-                {/* ── B: Petugas ── */}
+                {/* B: Petugas */}
                 <div>
                   <p className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
                     <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black">B</span>
@@ -506,11 +461,11 @@ export function ResponseForm({ request, existingResponses }: Props) {
 
                 <hr className="border-gray-100" />
 
-                {/* ── C: Penerima + Signature ── */}
+                {/* C: Penerima + Signature */}
                 <div>
                   <p className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
                     <span className="w-6 h-6 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-black">C</span>
-                    Data Penerima
+                    Data Penerima &amp; Tanda Tangan
                   </p>
                   <div className="space-y-4">
                     <div>
@@ -519,16 +474,16 @@ export function ResponseForm({ request, existingResponses }: Props) {
                         placeholder="Nama lengkap penerima darah" value={form.receiver_name}
                         onChange={e => update('receiver_name', e.target.value)} />
                     </div>
+
+                    {/* ── Signature Canvas (immediately active) ── */}
                     <div>
                       <Label>Tanda Tangan Penerima</Label>
-                      <SignaturePad onSave={handleSignatureSave} onClear={handleSignatureClear} />
-                      {signature && (
-                        <div className="mt-2 p-2 bg-green-50 rounded-lg border border-green-200 flex items-center gap-2">
-                          <span className="text-green-600 text-xs font-bold">✓ Tanda tangan terekam</span>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={signature} alt="TTD" className="h-8 ml-auto" />
-                        </div>
-                      )}
+                      <div className="rounded-xl overflow-hidden border border-gray-100 bg-gray-50 p-3">
+                        <p className="text-[10px] text-gray-400 font-medium mb-2 flex items-center gap-1">
+                          <span>✍️</span> Canvas aktif — langsung tanda tangan di bawah:
+                        </p>
+                        <SignaturePad ref={sigRef} />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -551,7 +506,6 @@ export function ResponseForm({ request, existingResponses }: Props) {
           <p className="text-green-600 text-sm mt-1">{responses.length} kantong darah telah diberikan.</p>
         </div>
       )}
-
       {currentStatus === 'rejected' && rejectionSent && (
         <div className="card p-6 text-center" style={{ background: '#fff1f2', borderColor: '#fecdd3' }}>
           <p className="text-4xl mb-2">❌</p>

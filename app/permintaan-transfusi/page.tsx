@@ -320,21 +320,8 @@ export default function PermintaanTransfusiPage() {
                 Tim PMI / Bank Darah akan memverifikasi dan memprosesnya segera.
               </p>
             </div>
-
-            <div className="bg-gray-50 rounded-2xl p-4 text-left space-y-1.5">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Nomor Permintaan</p>
-              <p id="transfusion-success-id" className="font-mono text-sm font-bold text-gray-900 break-all">{successData.id}</p>
-              <p className="text-xs text-gray-400">Simpan nomor ini untuk memantau status permintaan Anda.</p>
-            </div>
-
+            
             <div className="flex flex-col gap-3">
-              <Link
-                href={`/tracking?id=${successData.id}`}
-                id="track-transfusion-btn"
-                className="btn-primary justify-center"
-              >
-                🔍 Pantau Status Permintaan
-              </Link>
               <Link href="/" className="text-sm text-gray-500 hover:text-red-600 transition-colors font-medium">
                 ← Kembali ke Beranda
               </Link>
