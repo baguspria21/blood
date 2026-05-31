@@ -3,7 +3,10 @@
 import { useState, useRef } from 'react'
 import { SignaturePad, type SignaturePadHandle } from '../_components/SignaturePad'
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// TYPES
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface TransfusionRequest {
   id: string
   patient_name: string
@@ -54,43 +57,67 @@ interface Props {
   existingResponses: TransfusionResponse[]
 }
 
-// ── BagRow type (local state only, no id in DB) ───────────────────────────────
+// ── Bag row inside a product section ─────────────────────────────────────────
 interface BagRow {
-  _id: string          // local key only, never sent to API
+  _id: string
   bag_number: string
-  collection_date: string
-  blood_category: string
   volume_cc: string
+  collection_date: string
 }
 
-// ── Build dropdown options strictly from what the hospital requested ───────────
-interface ProductOption {
-  value: string   // stored in blood_category column
-  label: string   // display in dropdown
-  hint: string    // qty hint shown in option
+// ── Per-product section ───────────────────────────────────────────────────────
+type ProductStatus = 'tersedia' | 'tidak_tersedia'
+
+interface ProductSection {
+  key: string
+  label: string           // blood_category value sent to DB
+  requestedQty: string    // e.g. "250 cc" or "2 ktg" — display only
+  status: ProductStatus
+  bags: BagRow[]
+  unavailableNotes: string
 }
 
-function getRequestedProductOptions(req: TransfusionRequest): ProductOption[] {
-  const opts: ProductOption[] = []
-  if (req.wb_fresh_volume)           opts.push({ value: 'WB Segar',                label: 'WB Segar',                hint: `${req.wb_fresh_volume} cc` })
-  if (req.wb_new_volume)             opts.push({ value: 'WB Baru',                 label: 'WB Baru',                 hint: `${req.wb_new_volume} cc` })
-  if (req.wb_regular_volume)         opts.push({ value: 'WB Biasa',                label: 'WB Biasa',                hint: `${req.wb_regular_volume} cc` })
-  if (req.prc_fresh_volume)          opts.push({ value: 'PRC Segar',               label: 'PRC Segar',               hint: `${req.prc_fresh_volume} cc` })
-  if (req.prc_regular_volume)        opts.push({ value: 'PRC Biasa',               label: 'PRC Biasa',               hint: `${req.prc_regular_volume} cc` })
-  if (req.prc_washed_volume)         opts.push({ value: 'PRC Cuci',                label: 'PRC Cuci (Washed)',       hint: `${req.prc_washed_volume} cc` })
-  if (req.plasma_regular_volume)     opts.push({ value: 'Plasma Biasa',            label: 'Plasma Biasa',            hint: `${req.plasma_regular_volume} cc` })
-  if (req.plasma_ffp_volume)         opts.push({ value: 'FFP',                     label: 'FFP',                     hint: `${req.plasma_ffp_volume} cc` })
-  if (req.factor_thrombocyte_bags)   opts.push({ value: 'Thrombocyte Concentrate', label: 'Thrombocyte Concentrate', hint: `${req.factor_thrombocyte_bags} ktg` })
-  if (req.factor_cryoprecipitate_bags) opts.push({ value: 'Cryoprecipitate',       label: 'Cryoprecipitate – AHV',  hint: `${req.factor_cryoprecipitate_bags} ktg` })
-  if (req.factor_buffycoat_bags)     opts.push({ value: 'Buffy Coat',              label: 'Buffy Coat',              hint: `${req.factor_buffycoat_bags} ktg` })
-  if (req.factor_other)              opts.push({ value: req.factor_other,           label: req.factor_other,          hint: 'lain-lain' })
-  return opts
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function uid(): string {
+  return Math.random().toString(36).slice(2, 10)
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────────
+function makeBagRow(today: string): BagRow {
+  return { _id: uid(), bag_number: '', volume_cc: '', collection_date: today }
+}
+
+function buildProductSections(req: TransfusionRequest, today: string): ProductSection[] {
+  const sections: ProductSection[] = []
+
+  const add = (key: string, label: string, qty: string) =>
+    sections.push({ key, label, requestedQty: qty, status: 'tersedia', bags: [makeBagRow(today)], unavailableNotes: '' })
+
+  if (req.wb_fresh_volume)              add('wb_fresh',    'WB Segar',                `${req.wb_fresh_volume} cc`)
+  if (req.wb_new_volume)                add('wb_new',      'WB Baru',                 `${req.wb_new_volume} cc`)
+  if (req.wb_regular_volume)            add('wb_regular',  'WB Biasa',                `${req.wb_regular_volume} cc`)
+  if (req.prc_fresh_volume)             add('prc_fresh',   'PRC Segar',               `${req.prc_fresh_volume} cc`)
+  if (req.prc_regular_volume)           add('prc_regular', 'PRC Biasa',               `${req.prc_regular_volume} cc`)
+  if (req.prc_washed_volume)            add('prc_washed',  'PRC Cuci',                `${req.prc_washed_volume} cc`)
+  if (req.plasma_regular_volume)        add('plasma_reg',  'Plasma Biasa',            `${req.plasma_regular_volume} cc`)
+  if (req.plasma_ffp_volume)            add('plasma_ffp',  'FFP',                     `${req.plasma_ffp_volume} cc`)
+  if (req.factor_thrombocyte_bags)      add('thrombocyte', 'Thrombocyte Concentrate', `${req.factor_thrombocyte_bags} ktg`)
+  if (req.factor_cryoprecipitate_bags)  add('cryo',        'Cryoprecipitate – AHV',   `${req.factor_cryoprecipitate_bags} ktg`)
+  if (req.factor_buffycoat_bags)        add('buffy',        'Buffy Coat',             `${req.factor_buffycoat_bags} ktg`)
+  if (req.factor_other)                 add('other',        req.factor_other,          'lain-lain')
+
+  return sections
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUB-COMPONENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
 function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
   return (
-    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">
+    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
       {children}{required && <span className="text-red-500 ml-1">*</span>}
     </label>
   )
@@ -105,169 +132,256 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
-function BloodProductsRequested({ req }: { req: TransfusionRequest }) {
-  const products = [
-    req.wb_fresh_volume && `WB Segar: ${req.wb_fresh_volume} cc`,
-    req.wb_new_volume && `WB Baru: ${req.wb_new_volume} cc`,
-    req.wb_regular_volume && `WB Biasa: ${req.wb_regular_volume} cc`,
-    req.prc_fresh_volume && `PRC Segar: ${req.prc_fresh_volume} cc`,
-    req.prc_regular_volume && `PRC Biasa: ${req.prc_regular_volume} cc`,
-    req.prc_washed_volume && `PRC Cuci: ${req.prc_washed_volume} cc`,
-    req.plasma_regular_volume && `Plasma: ${req.plasma_regular_volume} cc`,
-    req.plasma_ffp_volume && `FFP: ${req.plasma_ffp_volume} cc`,
-    req.factor_thrombocyte_bags && `Trombosit: ${req.factor_thrombocyte_bags} ktg`,
-    req.factor_cryoprecipitate_bags && `Cryo: ${req.factor_cryoprecipitate_bags} ktg`,
-    req.factor_buffycoat_bags && `Buffy Coat: ${req.factor_buffycoat_bags} ktg`,
-    req.factor_other,
-  ].filter(Boolean)
-
-  if (products.length === 0) return <p className="text-sm text-gray-400">—</p>
+// ── Status toggle per product ─────────────────────────────────────────────────
+function StatusToggle({
+  id, value, onChange,
+}: {
+  id: string
+  value: ProductStatus
+  onChange: (v: ProductStatus) => void
+}) {
   return (
-    <div className="flex flex-wrap gap-2">
-      {products.map((p, i) => (
-        <span key={i} className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-100">{p}</span>
-      ))}
-    </div>
-  )
-}
-
-function AvailabilityToggle({ available, onChange }: { available: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div className="flex gap-3 mb-6">
-      <button type="button" id="blood-available-btn" onClick={() => onChange(true)}
-        className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-center gap-2 ${
-          available ? 'border-green-500 bg-green-600 text-white shadow-sm' : 'border-gray-200 text-gray-500 hover:border-green-200 hover:text-green-600'
-        }`}>
-        ✅ Darah Tersedia
+    <div
+      className="inline-flex rounded-xl overflow-hidden border text-xs font-bold"
+      style={{ borderColor: value === 'tersedia' ? '#22c55e' : '#ef4444' }}
+    >
+      <button
+        type="button"
+        id={`${id}-tersedia`}
+        onClick={() => onChange('tersedia')}
+        className="py-1.5 px-3 transition-all"
+        style={{
+          background: value === 'tersedia' ? 'linear-gradient(135deg, #16a34a, #15803d)' : '#f9fafb',
+          color: value === 'tersedia' ? '#fff' : '#9ca3af',
+        }}
+      >
+        ✅ Tersedia
       </button>
-      <button type="button" id="blood-unavailable-btn" onClick={() => onChange(false)}
-        className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-center gap-2 ${
-          !available ? 'border-red-500 bg-red-600 text-white shadow-sm' : 'border-gray-200 text-gray-500 hover:border-red-200 hover:text-red-600'
-        }`}>
+      <button
+        type="button"
+        id={`${id}-tidak`}
+        onClick={() => onChange('tidak_tersedia')}
+        className="py-1.5 px-3 border-l transition-all"
+        style={{
+          borderLeftColor: value === 'tersedia' ? '#22c55e' : '#ef4444',
+          background: value === 'tidak_tersedia' ? 'linear-gradient(135deg, #dc2626, #b91c1c)' : '#f9fafb',
+          color: value === 'tidak_tersedia' ? '#fff' : '#9ca3af',
+        }}
+      >
         ❌ Tidak Tersedia
       </button>
     </div>
   )
 }
 
-// ── Bag row component ──────────────────────────────────────────────────────────
+// ── Single bag row input ──────────────────────────────────────────────────────
 function BagRowInput({
-  index,
-  row,
-  productOptions,
-  canRemove,
-  today,
-  onChange,
-  onRemove,
+  sectionKey, index, row, canRemove, today, onChange, onRemove,
 }: {
+  sectionKey: string
   index: number
   row: BagRow
-  productOptions: ProductOption[]
   canRemove: boolean
   today: string
-  onChange: (id: string, field: keyof BagRow, value: string) => void
-  onRemove: (id: string) => void
+  onChange: (field: keyof BagRow, value: string) => void
+  onRemove: () => void
 }) {
   return (
+    <div className="flex flex-wrap items-end gap-3 p-3 rounded-xl bg-white border border-gray-100">
+      <div className="flex items-center self-end pb-1.5">
+        <span
+          className="w-5 h-5 rounded flex items-center justify-center text-white text-[10px] font-black flex-shrink-0"
+          style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)' }}
+        >
+          {index + 1}
+        </span>
+      </div>
+
+      {/* Bag number */}
+      <div className="min-w-[160px] flex-1">
+        <Label required>No. Kantong</Label>
+        <input
+          id={`${sectionKey}-bag-${index}-number`}
+          type="text"
+          className="input-field font-mono font-bold text-sm"
+          placeholder="UTD-2024-001"
+          value={row.bag_number}
+          onChange={e => onChange('bag_number', e.target.value)}
+        />
+      </div>
+
+      {/* Volume */}
+      <div className="min-w-[120px]">
+        <Label>Volume (cc/ktg)</Label>
+        <input
+          id={`${sectionKey}-bag-${index}-volume`}
+          type="text"
+          className="input-field text-sm"
+          placeholder="250 cc"
+          value={row.volume_cc}
+          onChange={e => onChange('volume_cc', e.target.value)}
+        />
+      </div>
+
+      {/* Collection date */}
+      <div className="min-w-[140px]">
+        <Label>Tgl Ambil</Label>
+        <input
+          id={`${sectionKey}-bag-${index}-date`}
+          type="date"
+          className="input-field text-sm"
+          value={row.collection_date}
+          onChange={e => onChange('collection_date', e.target.value)}
+        />
+      </div>
+
+      {/* Remove */}
+      {canRemove && (
+        <button
+          type="button"
+          id={`${sectionKey}-bag-${index}-remove`}
+          onClick={onRemove}
+          className="self-end mb-0.5 px-2 py-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+          title="Hapus kantong ini"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Per-product section card ───────────────────────────────────────────────────
+function ProductSectionCard({
+  section, index, today, onChange,
+}: {
+  section: ProductSection
+  index: number
+  today: string
+  onChange: (updater: (prev: ProductSection) => ProductSection) => void
+}) {
+  const addBag = () =>
+    onChange(s => ({ ...s, bags: [...s.bags, makeBagRow(today)] }))
+
+  const removeBag = (id: string) =>
+    onChange(s => ({ ...s, bags: s.bags.length > 1 ? s.bags.filter(b => b._id !== id) : s.bags }))
+
+  const updateBag = (id: string, field: keyof BagRow, value: string) =>
+    onChange(s => ({ ...s, bags: s.bags.map(b => b._id === id ? { ...b, [field]: value } : b) }))
+
+  const updateStatus = (v: ProductStatus) =>
+    onChange(s => ({ ...s, status: v }))
+
+  const updateNotes = (v: string) =>
+    onChange(s => ({ ...s, unavailableNotes: v }))
+
+  const isAvailable = section.status === 'tersedia'
+
+  // Color palette based on product category for visual differentiation
+  const colorMap: Record<string, { border: string; accent: string; bg: string }> = {
+    wb_fresh:    { border: '#fca5a5', accent: '#dc2626', bg: '#fff5f5' },
+    wb_new:      { border: '#fca5a5', accent: '#dc2626', bg: '#fff5f5' },
+    wb_regular:  { border: '#fca5a5', accent: '#dc2626', bg: '#fff5f5' },
+    prc_fresh:   { border: '#fdba74', accent: '#ea580c', bg: '#fff7ed' },
+    prc_regular: { border: '#fdba74', accent: '#ea580c', bg: '#fff7ed' },
+    prc_washed:  { border: '#fdba74', accent: '#ea580c', bg: '#fff7ed' },
+    plasma_reg:  { border: '#fde68a', accent: '#ca8a04', bg: '#fefce8' },
+    plasma_ffp:  { border: '#fde68a', accent: '#ca8a04', bg: '#fefce8' },
+    thrombocyte: { border: '#c4b5fd', accent: '#7c3aed', bg: '#faf5ff' },
+    cryo:        { border: '#c4b5fd', accent: '#7c3aed', bg: '#faf5ff' },
+    buffy:       { border: '#c4b5fd', accent: '#7c3aed', bg: '#faf5ff' },
+    other:       { border: '#d1d5db', accent: '#6b7280', bg: '#f9fafb' },
+  }
+  const palette = colorMap[section.key] ?? colorMap.other
+
+  return (
     <div
-      className="rounded-2xl border border-gray-200 overflow-hidden transition-shadow hover:shadow-sm"
-      style={{ background: index % 2 === 0 ? '#fafafa' : '#fff' }}
+      className="rounded-2xl overflow-hidden transition-all"
+      style={{
+        border: `1.5px solid ${isAvailable ? palette.border : '#fecdd3'}`,
+        background: isAvailable ? palette.bg : '#fff5f5',
+        opacity: isAvailable ? 1 : 0.92,
+      }}
     >
-      {/* Row header */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100"
-        style={{ background: 'linear-gradient(135deg, #fef2f2, #fff5f5)' }}>
-        <span className="text-xs font-bold text-red-700 flex items-center gap-2">
+      {/* Section header */}
+      <div
+        className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5"
+        style={{ borderBottom: `1px solid ${isAvailable ? palette.border : '#fecdd3'}` }}
+      >
+        <div className="flex items-center gap-3">
           <span
-            className="w-5 h-5 rounded-md flex items-center justify-center text-white text-[10px] font-black"
-            style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)' }}
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-black flex-shrink-0"
+            style={{ background: isAvailable ? palette.accent : '#9ca3af' }}
           >
             {index + 1}
           </span>
-          Kantong #{index + 1}
-        </span>
-        {canRemove && (
-          <button
-            type="button"
-            id={`remove-bag-${index}-btn`}
-            onClick={() => onRemove(row._id)}
-            className="text-xs font-semibold text-gray-400 hover:text-red-600 transition-colors flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-red-50"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-            Hapus
-          </button>
-        )}
+          <div>
+            <p className="font-bold text-gray-900 text-sm leading-tight">{section.label}</p>
+            <p className="text-[10px] text-gray-400 mt-0.5">
+              Permintaan RS: <strong className="text-gray-600">{section.requestedQty}</strong>
+            </p>
+          </div>
+        </div>
+
+        <StatusToggle
+          id={`product-status-${section.key}`}
+          value={section.status}
+          onChange={updateStatus}
+        />
       </div>
 
-      {/* Row fields */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4">
-        {/* Nomor Kantong */}
-        <div>
-          <Label required>No. Kantong</Label>
-          <input
-            id={`bag-number-${index}`}
-            type="text"
-            className="input-field font-mono font-bold text-sm"
-            placeholder="UTD-2024-001"
-            value={row.bag_number}
-            onChange={e => onChange(row._id, 'bag_number', e.target.value)}
-          />
-        </div>
+      {/* Content area */}
+      <div className="px-5 py-4">
+        {/* ── TERSEDIA: bag input rows ── */}
+        {isAvailable && (
+          <div className="space-y-2">
+            {section.bags.map((row, bagIdx) => (
+              <BagRowInput
+                key={row._id}
+                sectionKey={section.key}
+                index={bagIdx}
+                row={row}
+                canRemove={section.bags.length > 1}
+                today={today}
+                onChange={(field, value) => updateBag(row._id, field, value)}
+                onRemove={() => removeBag(row._id)}
+              />
+            ))}
 
-        {/* Jenis Produk — restricted to what was requested */}
-        <div>
-          <Label required>Jenis Produk Darah</Label>
-          {productOptions.length > 0 ? (
-            <select
-              id={`blood-category-${index}`}
-              className="input-field text-sm"
-              value={row.blood_category}
-              onChange={e => onChange(row._id, 'blood_category', e.target.value)}
+            <button
+              type="button"
+              id={`add-bag-${section.key}-btn`}
+              onClick={addBag}
+              className="w-full py-2 rounded-xl border border-dashed text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+              style={{ borderColor: palette.accent, color: palette.accent }}
             >
-              <option value="">-- Pilih Jenis --</option>
-              {productOptions.map(opt => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label} ({opt.hint})
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input
-              id={`blood-category-${index}`}
-              type="text"
-              className="input-field text-sm"
-              placeholder="Jenis produk darah"
-              value={row.blood_category}
-              onChange={e => onChange(row._id, 'blood_category', e.target.value)}
-            />
-          )}
-        </div>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              + Tambah Kantong untuk {section.label}
+            </button>
+          </div>
+        )}
 
-        {/* Volume */}
-        <div>
-          <Label>Volume (cc / Kantong)</Label>
-          <input
-            id={`volume-cc-${index}`}
-            type="text"
-            className="input-field text-sm"
-            placeholder="e.g. 250 cc"
-            value={row.volume_cc}
-            onChange={e => onChange(row._id, 'volume_cc', e.target.value)}
-          />
-        </div>
-
-        {/* Tanggal Pengambilan */}
-        <div>
-          <Label>Tgl Ambil</Label>
-          <input
-            id={`collection-date-${index}`}
-            type="date"
-            className="input-field text-sm"
-            value={row.collection_date}
-            onChange={e => onChange(row._id, 'collection_date', e.target.value)}
-          />
-        </div>
+        {/* ── TIDAK TERSEDIA: notes ── */}
+        {!isAvailable && (
+          <div className="flex items-center gap-3">
+            <span className="text-xl flex-shrink-0">❌</span>
+            <div className="flex-1">
+              <Label>Keterangan (opsional)</Label>
+              <input
+                id={`unavailable-notes-${section.key}`}
+                type="text"
+                className="input-field text-sm"
+                placeholder="Contoh: Stok habis, sedang dalam proses..."
+                value={section.unavailableNotes}
+                onChange={e => updateNotes(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -275,8 +389,8 @@ function BagRowInput({
 
 // ── Signature Modal ────────────────────────────────────────────────────────────
 interface SignatureModalProps {
-  isAvailable: boolean
-  bagCount: number
+  availableCount: number
+  unavailableCount: number
   officerSigRef: React.RefObject<SignaturePadHandle | null>
   receiverSigRef: React.RefObject<SignaturePadHandle | null>
   receiverName: string
@@ -287,8 +401,8 @@ interface SignatureModalProps {
 }
 
 function SignatureModal({
-  isAvailable,
-  bagCount,
+  availableCount,
+  unavailableCount,
   officerSigRef,
   receiverSigRef,
   receiverName,
@@ -297,6 +411,9 @@ function SignatureModal({
   onClose,
   submitting,
 }: SignatureModalProps) {
+  const isFullRejection = availableCount === 0
+  const isPartial = unavailableCount > 0 && availableCount > 0
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -314,9 +431,11 @@ function SignatureModal({
           <div>
             <h3 className="font-display font-bold text-white text-lg">✍️ Tanda Tangan</h3>
             <p className="text-red-200 text-xs mt-0.5">
-              {isAvailable
-                ? `Konfirmasi ${bagCount} kantong darah — Petugas PMI & Pengambil Darah`
-                : 'Tanda tangan Petugas PMI sebagai bukti verifikasi stok'}
+              {isFullRejection
+                ? 'Konfirmasi: Semua produk tidak tersedia — tanda tangan Petugas PMI wajib'
+                : isPartial
+                  ? `Konfirmasi sebagian — ${availableCount} tersedia, ${unavailableCount} tidak tersedia`
+                  : `Konfirmasi ${availableCount} produk tersedia — Petugas PMI & Pengambil Darah`}
             </p>
           </div>
           <button
@@ -330,24 +449,32 @@ function SignatureModal({
         </div>
 
         <div className="p-6 space-y-6">
-          {/* A: PMI Officer signature — always */}
+          {/* Partial summary banner */}
+          {isPartial && (
+            <div className="rounded-xl p-3 text-xs font-medium"
+              style={{ background: '#fffbeb', border: '1.5px solid #fde68a', color: '#92400e' }}>
+              ⚠️ Pemenuhan <strong>sebagian</strong>: produk yang tidak tersedia akan dicatat dalam keterangan permintaan.
+            </div>
+          )}
+
+          {/* A: PMI Officer (always) */}
           <div>
             <div className="flex items-center gap-2 mb-3">
               <span className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black text-white"
                 style={{ background: 'linear-gradient(135deg, #1d4ed8, #1e40af)' }}>A</span>
               <p className="text-sm font-bold text-gray-800">
                 Tanda Tangan Petugas PMI
-                {!isAvailable && <span className="ml-2 text-xs font-normal text-gray-500">(Verifikasi stok habis)</span>}
+                {isFullRejection && <span className="ml-2 text-xs font-normal text-gray-500">(verifikasi stok)</span>}
               </p>
             </div>
-            <div className="rounded-xl overflow-hidden border border-gray-100 bg-gray-50 p-3">
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
               <p className="text-[10px] text-gray-400 font-medium mb-2">✍️ Tanda tangan petugas ATD/PTTD yang bertugas:</p>
               <SignaturePad ref={officerSigRef} id="officer-sig-canvas" />
             </div>
           </div>
 
-          {/* B: Receiver — only when blood is available */}
-          {isAvailable && (
+          {/* B: Receiver (only if there are available items) */}
+          {!isFullRejection && (
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <span className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black text-white"
@@ -357,16 +484,11 @@ function SignatureModal({
               <div className="space-y-3">
                 <div>
                   <Label>Nama Pengambil Darah (Keluarga / Petugas RS)</Label>
-                  <input
-                    id="receiver-name-modal-input"
-                    type="text"
-                    className="input-field"
+                  <input id="receiver-name-modal-input" type="text" className="input-field"
                     placeholder="Nama lengkap pengambil darah"
-                    value={receiverName}
-                    onChange={e => onReceiverNameChange(e.target.value)}
-                  />
+                    value={receiverName} onChange={e => onReceiverNameChange(e.target.value)} />
                 </div>
-                <div className="rounded-xl overflow-hidden border border-gray-100 bg-gray-50 p-3">
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
                   <p className="text-[10px] text-gray-400 font-medium mb-2">✍️ Tanda tangan pengambil darah:</p>
                   <SignaturePad ref={receiverSigRef} id="receiver-sig-canvas" />
                 </div>
@@ -385,10 +507,9 @@ function SignatureModal({
           >
             {submitting
               ? <><span className="spinner" /> Menyimpan...</>
-              : isAvailable
-                ? `💾 Simpan ${bagCount} Kantong & Konfirmasi Tanda Tangan`
-                : '💾 Konfirmasi Status Tidak Tersedia'
-            }
+              : isFullRejection
+                ? '💾 Konfirmasi: Semua Tidak Tersedia'
+                : `💾 Simpan & Konfirmasi Tanda Tangan`}
           </button>
         </div>
       </div>
@@ -396,59 +517,39 @@ function SignatureModal({
   )
 }
 
-// ── Helper: generate unique row ID ────────────────────────────────────────────
-function uid() {
-  return Math.random().toString(36).slice(2, 10)
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
 
-function makeBagRow(defaultCategory: string, today: string): BagRow {
-  return { _id: uid(), bag_number: '', collection_date: today, blood_category: defaultCategory, volume_cc: '' }
-}
-
-// ── Main Component ─────────────────────────────────────────────────────────────
 export function ResponseForm({ request, existingResponses }: Props) {
   const today = new Date().toISOString().split('T')[0]
   const now = new Date().toTimeString().slice(0, 5)
 
-  // Derive the product options once
-  const productOptions = getRequestedProductOptions(request)
-  const defaultCategory = productOptions[0]?.value ?? ''
+  // ── Product sections (one per requested item) ────────────────────────────
+  const [productSections, setProductSections] = useState<ProductSection[]>(() =>
+    buildProductSections(request, today)
+  )
 
-  // ── Availability mode ──────────────────────────────────────────────────────
-  const [isAvailable, setIsAvailable] = useState(request.status !== 'rejected')
-  const [rejectionNotes, setRejectionNotes] = useState(request.rejection_notes ?? '')
-  const [sendingRejection, setSendingRejection] = useState(false)
-  const [rejectionSent, setRejectionSent] = useState(request.status === 'rejected')
+  const updateSection = (key: string, updater: (prev: ProductSection) => ProductSection) =>
+    setProductSections(prev => prev.map(s => s.key === key ? updater(s) : s))
 
-  // ── Global officer fields (shared across all bags) ─────────────────────────
+  // ── Global officer / blood type ──────────────────────────────────────────
   const [officer, setOfficer] = useState({
-    officer_name: '',
-    release_date: today,
-    release_time: now,
+    officer_name:  '',
+    release_date:  today,
+    release_time:  now,
     blood_type_abo: request.blood_type ?? '',
-    rhesus: request.rhesus === '+' ? 'Positif' : request.rhesus === '-' ? 'Negatif' : '',
+    rhesus:         request.rhesus === '+' ? 'Positif' : request.rhesus === '-' ? 'Negatif' : '',
   })
-  const updateOfficer = (key: keyof typeof officer, value: string) =>
-    setOfficer(prev => ({ ...prev, [key]: value }))
+  const updateOfficer = (k: keyof typeof officer, v: string) =>
+    setOfficer(prev => ({ ...prev, [k]: v }))
 
-  // ── Field array: bag rows ──────────────────────────────────────────────────
-  const [bags, setBags] = useState<BagRow[]>([makeBagRow(defaultCategory, today)])
-
-  const addBag = () =>
-    setBags(prev => [...prev, makeBagRow(defaultCategory, today)])
-
-  const removeBag = (id: string) =>
-    setBags(prev => prev.length > 1 ? prev.filter(b => b._id !== id) : prev)
-
-  const updateBag = (id: string, field: keyof BagRow, value: string) =>
-    setBags(prev => prev.map(b => b._id === id ? { ...b, [field]: value } : b))
-
-  // ── Receiver name & signatures ─────────────────────────────────────────────
+  // ── Receiver (modal) ─────────────────────────────────────────────────────
   const [receiverName, setReceiverName] = useState('')
   const officerSigRef = useRef<SignaturePadHandle>(null)
   const receiverSigRef = useRef<SignaturePadHandle>(null)
 
-  // ── UI state ───────────────────────────────────────────────────────────────
+  // ── UI state ─────────────────────────────────────────────────────────────
   const [showSignModal, setShowSignModal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -459,61 +560,68 @@ export function ResponseForm({ request, existingResponses }: Props) {
 
   const BLOOD_TYPES = ['A', 'B', 'AB', 'O']
   const RHESUS_OPTIONS = ['Positif', 'Negatif']
-  const isFinished = currentStatus === 'completed' || (currentStatus === 'rejected' && rejectionSent)
+  const isFinished = currentStatus === 'completed' || currentStatus === 'rejected'
 
-  // ── Validate before opening modal ─────────────────────────────────────────
-  const validateBags = (): string | null => {
-    for (let i = 0; i < bags.length; i++) {
-      if (!bags[i].bag_number.trim()) return `Nomor kantong #${i + 1} wajib diisi.`
-      if (!bags[i].blood_category) return `Jenis produk kantong #${i + 1} wajib dipilih.`
+  // ── Derived counts ───────────────────────────────────────────────────────
+  const availableCount = productSections.filter(s => s.status === 'tersedia').length
+  const unavailableCount = productSections.filter(s => s.status === 'tidak_tersedia').length
+
+  // ── Validation ───────────────────────────────────────────────────────────
+  const validate = (): string | null => {
+    for (const section of productSections) {
+      if (section.status !== 'tersedia') continue
+      if (section.bags.length === 0) return `Tambahkan minimal 1 kantong untuk ${section.label}.`
+      for (let i = 0; i < section.bags.length; i++) {
+        if (!section.bags[i].bag_number.trim())
+          return `No. kantong ${section.label} #${i + 1} wajib diisi.`
+      }
     }
     return null
   }
 
-  // ── Submit all bags at once ────────────────────────────────────────────────
+  // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     setError(null)
     setSubmitting(true)
-
-    const officerSignature = officerSigRef.current?.getDataURL() ?? null
-    const receiverSignature = receiverSigRef.current?.getDataURL() ?? null
-
     try {
+      const officerSignature  = officerSigRef.current?.getDataURL() ?? null
+      const receiverSignature = receiverSigRef.current?.getDataURL() ?? null
+
       const res = await fetch('/api/v1/admin/transfusion-responses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           transfusion_request_id: request.id,
-          // Global officer fields
-          blood_type_abo:  officer.blood_type_abo || null,
-          rhesus:          officer.rhesus || null,
-          officer_name:    officer.officer_name || null,
-          release_date:    officer.release_date || null,
-          release_time:    officer.release_time || null,
-          receiver_name:   receiverName || null,
+          blood_type_abo: officer.blood_type_abo || null,
+          rhesus:         officer.rhesus         || null,
+          officer_name:   officer.officer_name   || null,
+          release_date:   officer.release_date   || null,
+          release_time:   officer.release_time   || null,
+          receiver_name:  receiverName           || null,
           receiver_signature: receiverSignature,
-          officer_signature: officerSignature,
-          // Array of bag-specific fields
-          bags: bags.map(b => ({
-            bag_number:      b.bag_number.trim(),
-            collection_date: b.collection_date || null,
-            blood_category:  b.blood_category || null,
-            volume_cc:       b.volume_cc || null,
+          officer_signature:  officerSignature,
+          products: productSections.map(s => ({
+            label:  s.label,
+            status: s.status,
+            bags:   s.status === 'tersedia'
+              ? s.bags.map(b => ({ bag_number: b.bag_number.trim(), volume_cc: b.volume_cc || null, collection_date: b.collection_date || null }))
+              : [],
+            notes: s.status === 'tidak_tersedia' ? s.unavailableNotes : '',
           })),
         }),
       })
+
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Gagal menyimpan.')
 
-      // Prepend all inserted rows to the table
-      const newRows: TransfusionResponse[] = json.responses ?? (json.response ? [json.response] : [])
+      const newRows: TransfusionResponse[] = json.responses ?? []
       setResponses(prev => [...newRows, ...prev])
       setSuccessCount(c => c + newRows.length)
-      setCurrentStatus('approved')
+      setCurrentStatus(json.newStatus ?? (newRows.length > 0 ? 'approved' : 'rejected'))
       setShowSignModal(false)
 
-      // Reset for next batch
-      setBags([makeBagRow(defaultCategory, today)])
+      // Reset bags only — keep officer info for potential follow-up batches
+      setProductSections(buildProductSections(request, today))
       setReceiverName('')
       officerSigRef.current?.clear()
       receiverSigRef.current?.clear()
@@ -525,36 +633,6 @@ export function ResponseForm({ request, existingResponses }: Props) {
     }
   }
 
-  // ── Rejection ──────────────────────────────────────────────────────────────
-  const handleSendRejection = async () => {
-    setSendingRejection(true)
-    setError(null)
-    try {
-      const officerSignature = officerSigRef.current?.getDataURL() ?? null
-      const res = await fetch('/api/v1/admin/transfusion-responses', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transfusion_request_id: request.id,
-          status: 'rejected',
-          rejection_notes: rejectionNotes.trim() || 'Darah tidak tersedia.',
-          officer_name: officer.officer_name || null,
-          officer_signature: officerSignature,
-        }),
-      })
-      if (!res.ok) throw new Error('Gagal mengirim status.')
-      setCurrentStatus('rejected')
-      setRejectionSent(true)
-      setShowSignModal(false)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Terjadi kesalahan.')
-      setShowSignModal(false)
-    } finally {
-      setSendingRejection(false)
-    }
-  }
-
-  // ── Mark done ──────────────────────────────────────────────────────────────
   const handleMarkDone = async () => {
     setMarkingDone(true)
     try {
@@ -569,38 +647,38 @@ export function ResponseForm({ request, existingResponses }: Props) {
     }
   }
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* ── Signature Modal ── */}
       {showSignModal && (
         <SignatureModal
-          isAvailable={isAvailable}
-          bagCount={bags.length}
+          availableCount={availableCount}
+          unavailableCount={unavailableCount}
           officerSigRef={officerSigRef}
           receiverSigRef={receiverSigRef}
           receiverName={receiverName}
           onReceiverNameChange={setReceiverName}
-          onConfirm={() => isAvailable ? handleSubmit() : handleSendRejection()}
+          onConfirm={handleSubmit}
           onClose={() => setShowSignModal(false)}
-          submitting={submitting || sendingRejection}
+          submitting={submitting}
         />
       )}
 
       <div className="space-y-6">
 
-        {/* ────────────────────────────────────────────────────────────
+        {/* ════════════════════════════════════════════════════════════
             CARD 1: Request Summary
-        ──────────────────────────────────────────────────────────── */}
+        ═════════════════════════════════════════════════════════════ */}
         <div className="card p-6">
           <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
             <div>
               <h2 className="font-display text-xl font-bold text-gray-900">{request.patient_name}</h2>
-              <p className="text-sm text-gray-500 mt-0.5">{request.requesting_hospital ?? 'RS tidak disebutkan'}</p>
+              <p className="text-sm text-gray-500 mt-0.5">{request.requesting_hospital ?? '—'}</p>
             </div>
             <div className="flex items-center gap-2">
               {request.blood_type && (
                 <span className="font-display text-2xl font-black text-white px-4 py-2 rounded-xl"
-                  style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)', boxShadow: '0 4px 14px rgba(220,38,38,0.4)' }}>
+                  style={{ background: 'linear-gradient(135deg,#dc2626,#b91c1c)', boxShadow: '0 4px 14px rgba(220,38,38,.4)' }}>
                   {request.blood_type}{request.rhesus}
                 </span>
               )}
@@ -609,56 +687,52 @@ export function ResponseForm({ request, existingResponses }: Props) {
                 currentStatus === 'approved'  ? 'bg-blue-100 text-blue-700'  :
                 currentStatus === 'rejected'  ? 'bg-red-100 text-red-700'    : 'bg-amber-100 text-amber-700'
               }`}>
-                {currentStatus === 'completed' ? '✓ Selesai' : currentStatus === 'approved' ? '● Diproses' :
-                 currentStatus === 'rejected'  ? '✕ Ditolak' : '○ Menunggu'}
+                {currentStatus === 'completed' ? '✓ Selesai' :
+                 currentStatus === 'approved'  ? '● Diproses' :
+                 currentStatus === 'rejected'  ? '✕ Ditolak'  : '○ Menunggu'}
               </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-            <InfoRow label="Dokter"        value={request.requesting_doctor} />
-            <InfoRow label="Bagian"        value={request.bagian} />
-            <InfoRow label="Kelas"         value={request.kelas} />
-            <InfoRow label="Kontak"        value={request.contact_phone} />
-            <InfoRow label="Tgl Minta"     value={request.request_date    ? new Date(request.request_date).toLocaleDateString('id-ID', { dateStyle: 'medium' }) : '—'} />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <InfoRow label="Dokter"         value={request.requesting_doctor} />
+            <InfoRow label="Bagian"         value={request.bagian} />
+            <InfoRow label="Kelas"          value={request.kelas} />
+            <InfoRow label="Kontak"         value={request.contact_phone} />
+            <InfoRow label="Tgl Minta"      value={request.request_date   ? new Date(request.request_date).toLocaleDateString('id-ID', { dateStyle: 'medium' }) : '—'} />
             <InfoRow label="Tgl Diperlukan" value={request.needed_date    ? new Date(request.needed_date).toLocaleDateString('id-ID',  { dateStyle: 'medium' }) : '—'} />
-            <InfoRow label="Diagnosa"      value={request.diagnosis} />
-            <InfoRow label="Hb"            value={request.hemoglobin ? `${request.hemoglobin} g/%` : null} />
-          </div>
-
-          <div>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Produk Darah Diminta</p>
-            <BloodProductsRequested req={request} />
+            <InfoRow label="Diagnosa"       value={request.diagnosis} />
+            <InfoRow label="Hb"             value={request.hemoglobin ? `${request.hemoglobin} g/%` : null} />
           </div>
 
           {currentStatus !== 'completed' && currentStatus !== 'rejected' && responses.length > 0 && (
             <div className="mt-5 pt-5 border-t border-gray-100 flex items-center justify-between flex-wrap gap-3">
               <p className="text-sm text-gray-600">
-                <strong>{responses.length} kantong</strong> darah telah dicatat. Tandai sebagai selesai?
+                <strong>{responses.length} kantong</strong> telah dicatat. Tandai sebagai selesai?
               </p>
               <button id="mark-done-btn" onClick={handleMarkDone} disabled={markingDone}
-                className="text-sm font-bold text-white px-5 py-2 rounded-lg transition-opacity hover:opacity-90"
-                style={{ background: 'linear-gradient(135deg, #15803d, #166534)' }}>
+                className="text-sm font-bold text-white px-5 py-2 rounded-lg hover:opacity-90 transition-opacity"
+                style={{ background: 'linear-gradient(135deg,#15803d,#166534)' }}>
                 {markingDone ? '...' : '✓ Tandai Selesai'}
               </button>
             </div>
           )}
         </div>
 
-        {/* ────────────────────────────────────────────────────────────
+        {/* ════════════════════════════════════════════════════════════
             CARD 2: Existing Responses Table
-        ──────────────────────────────────────────────────────────── */}
+        ═════════════════════════════════════════════════════════════ */}
         {responses.length > 0 && (
           <div className="card overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
               <h3 className="font-display font-bold text-gray-900">Data Kantong Darah yang Diberikan</h3>
-              <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">{responses.length} kantong</span>
+              <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">{responses.length}</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    {['No. Kantong', 'Tgl Ambil', 'Jenis', 'Volume', 'Gol.', 'Rh', 'Petugas', 'Penerima', 'Jam Keluar'].map(h => (
+                    {['No. Kantong', 'Jenis', 'Volume', 'Gol.', 'Rh', 'Petugas', 'Penerima', 'Waktu Keluar'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -667,7 +741,6 @@ export function ResponseForm({ request, existingResponses }: Props) {
                   {responses.map(r => (
                     <tr key={r.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 font-mono font-bold text-gray-900 text-xs">{r.bag_number}</td>
-                      <td className="px-4 py-3 text-xs text-gray-600">{r.collection_date ? new Date(r.collection_date).toLocaleDateString('id-ID', { dateStyle: 'medium' }) : '—'}</td>
                       <td className="px-4 py-3"><span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-700">{r.blood_category ?? '—'}</span></td>
                       <td className="px-4 py-3 font-semibold text-gray-800">{r.volume_cc ?? '—'}</td>
                       <td className="px-4 py-3 font-bold text-gray-900">{r.blood_type_abo ?? '—'}</td>
@@ -683,218 +756,166 @@ export function ResponseForm({ request, existingResponses }: Props) {
           </div>
         )}
 
-        {/* ────────────────────────────────────────────────────────────
-            CARD 3: Response Panel
-        ──────────────────────────────────────────────────────────── */}
+        {/* ════════════════════════════════════════════════════════════
+            CARD 3: Unified Response Form
+        ═════════════════════════════════════════════════════════════ */}
         {!isFinished && (
-          <div className="card p-6">
-            {/* Panel header */}
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-8 h-8 rounded-lg gradient-brand flex items-center justify-center text-white text-sm font-bold"
-                style={{ boxShadow: '0 4px 12px rgba(220,38,38,0.3)' }}>✎</div>
+          <div className="card p-6 space-y-6">
+
+            {/* Panel header + status pills */}
+            <div className="flex items-start justify-between flex-wrap gap-3">
               <div>
-                <h3 className="font-display font-bold text-gray-900">Respons Permintaan</h3>
-                <p className="text-xs text-gray-400">Pilih apakah darah tersedia atau tidak</p>
+                <h3 className="font-display font-bold text-gray-900 text-lg">Respons Permintaan Darah</h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Isi status untuk setiap produk yang diminta. Pemenuhan sebagian diperbolehkan.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {availableCount > 0 && (
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-green-100 text-green-700">
+                    ✅ {availableCount} tersedia
+                  </span>
+                )}
+                {unavailableCount > 0 && (
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700">
+                    ❌ {unavailableCount} tidak tersedia
+                  </span>
+                )}
               </div>
             </div>
 
-            <AvailabilityToggle available={isAvailable} onChange={v => { setIsAvailable(v); setError(null) }} />
+            {error && <div className="alert alert-error">⚠️ {error}</div>}
+            {successCount > 0 && <div className="alert alert-success">✅ {successCount} kantong darah berhasil dicatat.</div>}
 
-            {error && <div className="alert alert-error mb-5">⚠️ {error}</div>}
+            {/* ── Section A: Per-product list ── */}
+            <div>
+              <p className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                <span className="w-6 h-6 rounded-lg bg-red-100 text-red-600 flex items-center justify-center text-xs font-black">A</span>
+                Status per Produk yang Diminta
+              </p>
 
-            {/* ── Tidak Tersedia ── */}
-            {!isAvailable && (
-              <div className="space-y-4">
-                <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
-                  <p className="text-sm font-bold text-red-700 flex items-center gap-2">❌ Status: Darah Tidak Tersedia</p>
-                  <div>
-                    <Label>Nama Petugas PMI (untuk tanda tangan)</Label>
-                    <input id="rejection-officer-name-input" type="text" className="input-field"
-                      placeholder="Nama petugas ATD/PTTD" value={officer.officer_name}
-                      onChange={e => updateOfficer('officer_name', e.target.value)} />
-                  </div>
-                  <div>
-                    <Label>Keterangan / Alasan</Label>
-                    <textarea id="rejection-notes-input" className="input-field" rows={4}
-                      placeholder="Contoh: Stok golongan darah O+ habis..."
-                      value={rejectionNotes} onChange={e => setRejectionNotes(e.target.value)} />
+              {productSections.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 text-sm">
+                  Tidak ada data produk yang diminta dalam permintaan ini.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {productSections.map((section, idx) => (
+                    <ProductSectionCard
+                      key={section.key}
+                      section={section}
+                      index={idx}
+                      today={today}
+                      onChange={updater => updateSection(section.key, updater)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <hr className="border-gray-100" />
+
+            {/* ── Section B: Global blood type ── */}
+            <div>
+              <p className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                <span className="w-6 h-6 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-black">B</span>
+                Golongan Darah
+                <span className="text-[10px] font-normal text-blue-500">(berlaku untuk semua kantong)</span>
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Golongan Darah ABO</Label>
+                  <div className="flex gap-2">
+                    {BLOOD_TYPES.map(t => (
+                      <button key={t} type="button" id={`resp-bt-${t}`}
+                        onClick={() => updateOfficer('blood_type_abo', t)}
+                        className={`flex-1 py-2 text-sm font-bold rounded-lg border-2 transition-all ${
+                          officer.blood_type_abo === t ? 'border-red-500 bg-red-600 text-white' : 'border-gray-200 text-gray-500 hover:border-red-200'
+                        }`}>{t}</button>
+                    ))}
                   </div>
                 </div>
-                <button type="button" id="proceed-to-sign-rejection-btn"
-                  onClick={() => setShowSignModal(true)}
-                  className="w-full py-3.5 px-6 rounded-xl font-bold text-sm text-white transition-all flex items-center justify-center gap-2"
-                  style={{ background: 'linear-gradient(135deg, #b91c1c, #7f1d1d)', boxShadow: '0 4px 14px rgba(185,28,28,0.3)' }}>
-                  ✍️ Selesai &amp; Lanjut Tanda Tangan
-                </button>
+                <div>
+                  <Label>Rhesus</Label>
+                  <div className="flex gap-2">
+                    {RHESUS_OPTIONS.map(r => (
+                      <button key={r} type="button" id={`resp-rh-${r}`}
+                        onClick={() => updateOfficer('rhesus', r)}
+                        className={`flex-1 py-2 text-sm font-semibold rounded-lg border-2 transition-all ${
+                          officer.rhesus === r ? 'border-red-500 bg-red-600 text-white' : 'border-gray-200 text-gray-500 hover:border-red-200'
+                        }`}>{r}</button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            )}
+            </div>
 
-            {/* ── Darah Tersedia ── */}
-            {isAvailable && (
-              <>
-                {successCount > 0 && (
-                  <div className="alert alert-success mb-5">✅ {successCount} kantong darah berhasil dicatat.</div>
-                )}
+            <hr className="border-gray-100" />
 
-                {/* Request context banner */}
-                <div className="rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-center"
-                  style={{ background: 'linear-gradient(135deg, #fff1f2, #fff5f5)', border: '1.5px solid #fecdd3' }}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Permintaan RS:</span>
-                    <span className="font-display text-lg font-black text-white px-3 py-1 rounded-lg"
-                      style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)' }}>
-                      {request.blood_type}{request.rhesus}
-                    </span>
-                  </div>
-                  <BloodProductsRequested req={request} />
+            {/* ── Section C: Officer info ── */}
+            <div>
+              <p className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black">C</span>
+                Petugas Pengeluaran (ATD/PTTD)
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label>Nama Petugas</Label>
+                  <input id="officer-name-input" type="text" className="input-field"
+                    placeholder="Nama petugas ATD/PTTD"
+                    value={officer.officer_name}
+                    onChange={e => updateOfficer('officer_name', e.target.value)} />
                 </div>
-
-                <div className="space-y-6">
-
-                  {/* ── SECTION A: Field Array ── */}
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-lg bg-red-100 text-red-600 flex items-center justify-center text-xs font-black">A</span>
-                        Data Kantong Darah
-                        <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-0.5 rounded-full">{bags.length} kantong</span>
-                      </p>
-                      {productOptions.length > 0 && (
-                        <span className="text-[10px] text-gray-400 font-medium">
-                          Dropdown dibatasi dari permintaan RS
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Bag rows */}
-                    <div className="space-y-3">
-                      {bags.map((row, idx) => (
-                        <BagRowInput
-                          key={row._id}
-                          index={idx}
-                          row={row}
-                          productOptions={productOptions}
-                          canRemove={bags.length > 1}
-                          today={today}
-                          onChange={updateBag}
-                          onRemove={removeBag}
-                        />
-                      ))}
-                    </div>
-
-                    {/* Add bag button */}
-                    <button
-                      type="button"
-                      id="add-bag-btn"
-                      onClick={addBag}
-                      className="mt-3 w-full py-2.5 rounded-xl border-2 border-dashed border-red-200 text-red-600 font-bold text-sm hover:border-red-400 hover:bg-red-50 transition-all flex items-center justify-center gap-2"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M12 5v14M5 12h14" />
-                      </svg>
-                      + Tambah Kantong Darah
-                    </button>
-                  </div>
-
-                  <hr className="border-gray-100" />
-
-                  {/* ── SECTION B: Global Blood Type & Rhesus ── */}
-                  <div>
-                    <p className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-black">B</span>
-                      Golongan Darah (berlaku untuk semua kantong)
-                      <span className="text-[10px] font-normal text-blue-500">(dari permintaan RS)</span>
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label>Golongan Darah ABO</Label>
-                        <div className="flex gap-2">
-                          {BLOOD_TYPES.map(t => (
-                            <button key={t} type="button" id={`resp-blood-type-${t}`}
-                              onClick={() => updateOfficer('blood_type_abo', t)}
-                              className={`flex-1 py-2 text-sm font-bold rounded-lg border-2 transition-all ${
-                                officer.blood_type_abo === t ? 'border-red-500 bg-red-600 text-white' : 'border-gray-200 text-gray-500 hover:border-red-200'
-                              }`}>{t}</button>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <Label>Rhesus</Label>
-                        <div className="flex gap-2">
-                          {RHESUS_OPTIONS.map(r => (
-                            <button key={r} type="button" id={`resp-rhesus-${r}`}
-                              onClick={() => updateOfficer('rhesus', r)}
-                              className={`flex-1 py-2 text-sm font-semibold rounded-lg border-2 transition-all ${
-                                officer.rhesus === r ? 'border-red-500 bg-red-600 text-white' : 'border-gray-200 text-gray-500 hover:border-red-200'
-                              }`}>{r}</button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <hr className="border-gray-100" />
-
-                  {/* ── SECTION C: Global Officer Info ── */}
-                  <div>
-                    <p className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black">C</span>
-                      Petugas Pengeluaran (ATD/PTTD)
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <Label>Nama Petugas</Label>
-                        <input id="officer-name-input" type="text" className="input-field"
-                          placeholder="Nama petugas ATD/PTTD"
-                          value={officer.officer_name}
-                          onChange={e => updateOfficer('officer_name', e.target.value)} />
-                      </div>
-                      <div>
-                        <Label>Tanggal Pengeluaran</Label>
-                        <input id="release-date-input" type="date" className="input-field"
-                          value={officer.release_date}
-                          onChange={e => updateOfficer('release_date', e.target.value)} />
-                      </div>
-                      <div>
-                        <Label>Jam Pengeluaran</Label>
-                        <input id="release-time-input" type="time" className="input-field"
-                          value={officer.release_time}
-                          onChange={e => updateOfficer('release_time', e.target.value)} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <hr className="border-gray-100" />
-
-                  {/* ── Proceed to sign button ── */}
-                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap">
-                    <div>
-                      <p className="text-sm font-bold text-blue-800">
-                        {bags.length} kantong siap dikonfirmasi
-                      </p>
-                      <p className="text-xs text-blue-600 mt-0.5">
-                        Klik tombol ini untuk membuka panel tanda tangan Petugas PMI dan Pengambil Darah.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      id="proceed-to-sign-btn"
-                      onClick={() => {
-                        const err = validateBags()
-                        if (err) return setError(err)
-                        setError(null)
-                        setShowSignModal(true)
-                      }}
-                      className="flex-shrink-0 py-3 px-6 rounded-xl font-bold text-sm text-white transition-all flex items-center gap-2"
-                      style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)', boxShadow: '0 4px 14px rgba(220,38,38,0.3)' }}
-                    >
-                      ✍️ Selesai &amp; Lanjut Tanda Tangan
-                    </button>
-                  </div>
-
+                <div>
+                  <Label>Tanggal Pengeluaran</Label>
+                  <input id="release-date-input" type="date" className="input-field"
+                    value={officer.release_date}
+                    onChange={e => updateOfficer('release_date', e.target.value)} />
                 </div>
-              </>
-            )}
+                <div>
+                  <Label>Jam Pengeluaran</Label>
+                  <input id="release-time-input" type="time" className="input-field"
+                    value={officer.release_time}
+                    onChange={e => updateOfficer('release_time', e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            <hr className="border-gray-100" />
+
+            {/* ── Proceed button ── */}
+            <div
+              className="rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap"
+              style={{ background: '#f0f9ff', border: '1.5px solid #bae6fd' }}
+            >
+              <div>
+                <p className="text-sm font-bold text-blue-900">
+                  {availableCount === productSections.length && productSections.length > 0
+                    ? 'Semua produk tersedia — siap dikonfirmasi'
+                    : unavailableCount === productSections.length && productSections.length > 0
+                      ? 'Semua produk tidak tersedia — konfirmasi penolakan'
+                      : `${availableCount} produk tersedia, ${unavailableCount} tidak tersedia`}
+                </p>
+                <p className="text-xs text-blue-600 mt-0.5">
+                  Klik untuk membuka panel tanda tangan Petugas PMI{availableCount > 0 ? ' dan Pengambil Darah' : ''}.
+                </p>
+              </div>
+              <button
+                type="button"
+                id="proceed-to-sign-btn"
+                onClick={() => {
+                  const err = validate()
+                  if (err) return setError(err)
+                  setError(null)
+                  setShowSignModal(true)
+                }}
+                className="flex-shrink-0 py-3 px-6 rounded-xl font-bold text-sm text-white transition-all flex items-center gap-2"
+                style={{ background: 'linear-gradient(135deg,#dc2626,#b91c1c)', boxShadow: '0 4px 14px rgba(220,38,38,.3)' }}
+              >
+                ✍️ Selesai &amp; Lanjut Tanda Tangan
+              </button>
+            </div>
+
           </div>
         )}
 
@@ -906,11 +927,13 @@ export function ResponseForm({ request, existingResponses }: Props) {
             <p className="text-green-600 text-sm mt-1">{responses.length} kantong darah telah diberikan.</p>
           </div>
         )}
-        {currentStatus === 'rejected' && rejectionSent && (
+        {currentStatus === 'rejected' && (
           <div className="card p-6 text-center" style={{ background: '#fff1f2', borderColor: '#fecdd3' }}>
             <p className="text-4xl mb-2">❌</p>
             <p className="font-display text-lg font-bold text-red-700">Status: Tidak Tersedia</p>
-            <p className="text-red-600 text-sm mt-1 max-w-sm mx-auto">{rejectionNotes || 'Darah tidak tersedia.'}</p>
+            {request.rejection_notes && (
+              <p className="text-red-600 text-sm mt-1 max-w-md mx-auto">{request.rejection_notes}</p>
+            )}
           </div>
         )}
 
