@@ -16,11 +16,11 @@ export interface SignaturePadHandle {
  *
  * Usage:
  *   const sigRef = useRef<SignaturePadHandle>(null)
- *   <SignaturePad ref={sigRef} />
+ *   <SignaturePad ref={sigRef} id="my-canvas" />
  *   // on submit:
  *   const dataUrl = sigRef.current?.getDataURL()
  */
-export const SignaturePad = forwardRef<SignaturePadHandle>((_props, ref) => {
+export const SignaturePad = forwardRef<SignaturePadHandle, { id?: string }>(({ id }, ref) => {
   const canvasRef = useRef<SignatureCanvas>(null)
 
   useImperativeHandle(ref, () => ({
@@ -41,7 +41,7 @@ export const SignaturePad = forwardRef<SignaturePadHandle>((_props, ref) => {
     <div className="space-y-2">
       {/* Canvas wrapper */}
       <div
-        id="signature-canvas-wrapper"
+        id={id ? `${id}-wrapper` : 'signature-canvas-wrapper'}
         className="rounded-xl overflow-hidden bg-white"
         style={{
           border: '2px dashed #d1d5db',
@@ -65,7 +65,7 @@ export const SignaturePad = forwardRef<SignaturePadHandle>((_props, ref) => {
           maxWidth={2.8}
           velocityFilterWeight={0.7}
           canvasProps={{
-            id: 'signature-canvas',
+            id: id ?? 'signature-canvas',
             style: {
               width: '100%',
               height: '160px',
@@ -81,7 +81,7 @@ export const SignaturePad = forwardRef<SignaturePadHandle>((_props, ref) => {
 
       <button
         type="button"
-        id="clear-signature-btn"
+        id={id ? `${id}-clear-btn` : 'clear-signature-btn'}
         onClick={() => canvasRef.current?.clear()}
         className="text-xs font-semibold text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:text-red-600 hover:border-red-200 transition-colors"
       >

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabaseServer'
 
 /**
- * GET  /api/v1/profile  — same as /api/v1/me (alias)
- * PATCH /api/v1/profile — update name, phone_number, and optional metadata fields
+ * GET  /api/v1/profile  — same as /api/v1/me (alias), includes total_donations
+ * PATCH /api/v1/profile — update name, phone_number, is_active, blood_type, rhesus, sub_district
  */
 export async function GET() {
   const supabase = await createSupabaseServerClient()
@@ -12,7 +12,21 @@ export async function GET() {
 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   const meta = user.user_metadata ?? {}
-  return NextResponse.json({ ...profile, email: user.email, hospital_name: meta.hospital_name ?? '', address: meta.address ?? '' })
+
+  // Count successful donations for volunteer users (table uses 'done' not 'completed')
+  const { count: totalDonations } = await supabase
+    .from('volunteer_donations')
+    .select('*', { count: 'exact', head: true })
+    .eq('volunteer_id', user.id)
+    .eq('status', 'done')
+
+  return NextResponse.json({
+    ...profile,
+    email: user.email,
+    hospital_name: meta.hospital_name ?? '',
+    address: meta.address ?? '',
+    total_donations: totalDonations ?? 0,
+  })
 }
 
 export async function PATCH(req: NextRequest) {
@@ -21,13 +35,17 @@ export async function PATCH(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 })
 
   const body = await req.json()
-  const { name, phone_number, hospital_name, address } = body
+  const { name, phone_number, hospital_name, address, is_active, blood_type, rhesus, sub_district } = body
 
   // Update profiles table
   const profileUpdate: Record<string, unknown> = {}
-  if (name?.trim())         profileUpdate.name         = name.trim()
-  if (phone_number?.trim()) profileUpdate.phone_number = phone_number.trim()
-  if (address?.trim())      profileUpdate.sub_district = address.trim()
+  if (name?.trim())                  profileUpdate.name         = name.trim()
+  if (phone_number?.trim())          profileUpdate.phone_number = phone_number.trim()
+  if (address?.trim())               profileUpdate.sub_district = address.trim()
+  if (sub_district?.trim())          profileUpdate.sub_district = sub_district.trim()
+  if (typeof is_active === 'boolean') profileUpdate.is_active   = is_active
+  if (blood_type)                    profileUpdate.blood_type   = blood_type
+  if (rhesus)                        profileUpdate.rhesus       = rhesus
 
   if (Object.keys(profileUpdate).length > 0) {
     const { error } = await supabase.from('profiles').update(profileUpdate).eq('id', user.id)
@@ -47,3 +65,4 @@ export async function PATCH(req: NextRequest) {
 
   return NextResponse.json({ success: true })
 }
+

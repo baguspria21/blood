@@ -47,6 +47,14 @@ export default async function RumahSakitLayout({ children }: { children: React.R
               className="text-sm font-medium text-gray-600 px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors">
               Dashboard
             </Link>
+            <Link href="/rumah-sakit/status" id="rs-nav-status"
+              className="text-sm font-medium text-gray-600 px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors">
+              Status Permintaan
+            </Link>
+            <Link href="/rumah-sakit/deskripsi" id="rs-nav-deskripsi"
+              className="text-sm font-medium text-gray-600 px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors">
+              Deskripsi Respons
+            </Link>
             <Link href="/rumah-sakit/profil" id="rs-nav-profil"
               className="text-sm font-medium text-gray-600 px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors">
               Profil

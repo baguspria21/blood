@@ -1,7 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
+
+const SignaturePad = dynamic(
+  () => import('@/app/admin/transfusi/_components/SignaturePad').then(m => m.SignaturePad),
+  { ssr: false },
+)
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface Hospital {
@@ -135,6 +141,10 @@ export default function PermintaanTransfusiPage() {
   // ── Auto hospital identity (loaded from session) ─────────────────────────
   const [hospitalProfile, setHospitalProfile] = useState<{ name: string; hospital_name: string; id?: string } | null>(null)
 
+  // ── Hospital signature ref ────────────────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const hospitalSigRef = useRef<any>(null)
+
   // ── Section 1: Identitas ────────────────────────────────────────────────
   const [requestingHospital, setRequestingHospital] = useState('')
   const [bagian, setBagian] = useState('')
@@ -150,6 +160,16 @@ export default function PermintaanTransfusiPage() {
   const [ageYears, setAgeYears] = useState('')
   const [ageMonths, setAgeMonths] = useState('')
   const [address, setAddress] = useState('')
+
+  // ── Auto age formatter ─────────────────────────────────────────────────
+  const ageFormatted = (() => {
+    const y = parseInt(ageYears) || 0
+    const m = parseInt(ageMonths) || 0
+    if (y === 0 && m === 0) return ''
+    if (y === 0) return `${m} bulan`
+    if (m === 0) return `${y} tahun`
+    return `${y} tahun ${m} bulan`
+  })()
   const [contactPhone, setContactPhone] = useState('')
   const [requestDate, setRequestDate] = useState(new Date().toISOString().split('T')[0])
   const [neededDate, setNeededDate] = useState('')
@@ -251,6 +271,7 @@ export default function PermintaanTransfusiPage() {
       if (birthDate) fd.append('birth_date', birthDate)
       if (ageYears) fd.append('age_years', ageYears)
       if (ageMonths) fd.append('age_months', ageMonths)
+      if (ageFormatted) fd.append('age_formatted', ageFormatted)
       if (address) fd.append('address', address)
       if (neededDate) fd.append('needed_date', neededDate)
 
@@ -287,6 +308,10 @@ export default function PermintaanTransfusiPage() {
       if (factorCryo) fd.append('factor_cryoprecipitate_bags', factorCryo)
       if (factorBuffy) fd.append('factor_buffycoat_bags', factorBuffy)
       if (factorOther) fd.append('factor_other', factorOther)
+
+      // Hospital signature
+      const hospitalSig = hospitalSigRef.current?.getDataURL()
+      if (hospitalSig) fd.append('requesting_hospital_signature', hospitalSig)
 
       const res = await fetch('/api/v1/transfusion-requests', { method: 'POST', body: fd })
       const json = await res.json()
@@ -526,7 +551,7 @@ export default function PermintaanTransfusiPage() {
                   />
                 </div>
                 <div>
-                  <FieldLabel htmlFor="age-months-input">Umur (Bulan)</FieldLabel>
+                  <FieldLabel htmlFor="age-months-input">Umur (Bulan) <span className="text-gray-400 font-normal">(0–11)</span></FieldLabel>
                   <input
                     id="age-months-input"
                     type="number"
@@ -539,6 +564,29 @@ export default function PermintaanTransfusiPage() {
                   />
                 </div>
               </div>
+
+              {/* ── Auto Age Preview ── */}
+              {ageFormatted && (
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-gray-500 font-medium">Usia terkonversi:</span>
+                  <span
+                    id="age-formatted-preview"
+                    className="inline-flex items-center gap-1.5 text-sm font-bold px-3 py-1 rounded-full transition-all"
+                    style={{
+                      background: 'linear-gradient(135deg, #fef3c7, #fde68a)',
+                      color: '#92400e',
+                      border: '1.5px solid #f59e0b',
+                      boxShadow: '0 2px 6px rgba(245,158,11,0.2)',
+                    }}
+                  >
+                    <svg width={13} height={13} viewBox="0 0 24 24" fill="currentColor" style={{ opacity: 0.7 }}>
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/>
+                    </svg>
+                    {ageFormatted}
+                  </span>
+                  <input type="hidden" name="age_formatted" value={ageFormatted} />
+                </div>
+              )}
 
               <div>
                 <FieldLabel htmlFor="address-input">Alamat / Rumah</FieldLabel>
@@ -941,6 +989,50 @@ export default function PermintaanTransfusiPage() {
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════════
+              SECTION 6 — TANDA TANGAN PEMOHON
+          ════════════════════════════════════════════════════════════ */}
+          <div className="card p-6">
+            <SectionHeader
+              num={6}
+              title="Tanda Tangan Pemohon"
+              subtitle="Tanda tangan dokter / petugas RS yang mengajukan permintaan ini"
+            />
+
+            <div className="space-y-4">
+              <div
+                className="rounded-xl p-4"
+                style={{ background: '#fff1f2', border: '1.5px solid #fecdd3' }}
+              >
+                <p className="text-xs text-red-700 font-semibold mb-1 flex items-center gap-1.5">
+                  <span>📋</span> Dengan menandatangani, pemohon menyatakan bahwa data di atas adalah benar dan dapat diverifikasi.
+                </p>
+              </div>
+
+              <div>
+                <FieldLabel>Tanda Tangan Dokter / Petugas Pemohon</FieldLabel>
+                <div
+                  className="rounded-xl overflow-hidden"
+                  style={{ border: '1.5px solid #e5e7eb' }}
+                >
+                  <div
+                    className="px-4 py-2 flex items-center gap-2"
+                    style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)' }}
+                  >
+                    <span className="text-white text-xs font-bold">✍️ Area Tanda Tangan</span>
+                    <span className="text-red-200 text-xs ml-auto">Gambar tanda tangan di dalam kotak</span>
+                  </div>
+                  <div className="bg-gray-50 p-3">
+                    <SignaturePad ref={hospitalSigRef} id="hospital-sig-canvas" />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 mt-1.5">
+                  Tanda tangan bersifat opsional namun sangat disarankan untuk keabsahan surat permintaan.
+                </p>
               </div>
             </div>
           </div>

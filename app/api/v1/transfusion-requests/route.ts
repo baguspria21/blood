@@ -111,6 +111,7 @@ export async function POST(req: NextRequest) {
       blood_type:               blood_type as 'A' | 'B' | 'AB' | 'O' | null,
       rhesus:                   rhesus as '+' | '-' | null,
       hospital_id:              getString('hospital_id'),
+      requesting_hospital_signature: getString('requesting_hospital_signature'),
       status:                   'pending' as const,
     }
 

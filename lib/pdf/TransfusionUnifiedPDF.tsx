@@ -220,6 +220,7 @@ export interface UnifiedRequest {
   factor_other?: string | null
   status?: string
   rejection_notes?: string | null
+  requesting_hospital_signature?: string | null
   created_at?: string
 }
 
@@ -236,6 +237,7 @@ export interface UnifiedResponse {
   release_time?: string | null
   receiver_name?: string | null
   receiver_signature?: string | null
+  officer_signature?: string | null
 }
 
 export interface TransfusionUnifiedPDFProps {
@@ -290,7 +292,9 @@ export function TransfusionUnifiedPDF({ request, responses = [] }: TransfusionUn
   const isRejected  = status === 'rejected'
   const products    = getProducts(request)
   const printDate   = new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })
-  const sigResponse = responses.find(r => r.receiver_signature)
+  const firstResponse = responses[0]
+  const sigReceiverResponse = responses.find(r => r.receiver_signature)
+  const sigOfficerResponse  = responses.find(r => r.officer_signature)
 
   return (
     <Document title={`${docTitle(status)} — ${request.patient_name}`}>
@@ -468,6 +472,18 @@ export function TransfusionUnifiedPDF({ request, responses = [] }: TransfusionUn
               <Text style={S.rejTitle}>⚠ Darah Tidak Tersedia</Text>
               <Text style={S.rejNote}>{v(request.rejection_notes)}</Text>
             </View>
+            {/* Officer signature for rejection accountability */}
+            <View style={[S.row, { justifyContent: 'flex-end', marginTop: 8 }]}>
+              <View style={S.sigBox}>
+                <Text style={[S.lbl, { marginBottom: 4, textAlign: 'center' }]}>Petugas PMI (Verifikasi Stok)</Text>
+                {sigOfficerResponse?.officer_signature ? (
+                  <Image src={sigOfficerResponse.officer_signature} style={S.sigImg} />
+                ) : (
+                  <View style={S.sigPlaceholder} />
+                )}
+                <Text style={[S.lbl, { marginTop: 4, textAlign: 'center' }]}>{v(firstResponse?.officer_name)}</Text>
+              </View>
+            </View>
           </>
         )}
 
@@ -503,48 +519,67 @@ export function TransfusionUnifiedPDF({ request, responses = [] }: TransfusionUn
         )}
 
         {/* ════════════════════════════════════════════════════════════
-            PART III — SIGNATURE (only when approved/completed)
+            PART III — SIGNATURE (only when responded: approved/completed)
         ═══════════════════════════════════════════════════════════ */}
         {isResponded && (
           <>
             <View style={S.divider} />
             <View style={S.section}>
               <Text style={S.sectionTitle}>V. Tanda Tangan &amp; Serah Terima</Text>
-              <View style={[S.row, { alignItems: 'flex-start', justifyContent: 'space-between' }]}>
-                {/* Receiver info */}
-                <View style={{ flex: 1, paddingRight: 16 }}>
-                  <Text style={S.lbl}>Nama Penerima</Text>
-                  <Text style={S.val}>{v(sigResponse?.receiver_name ?? responses[0]?.receiver_name)}</Text>
-                  <View style={{ marginTop: 12 }}>
-                    <Text style={S.lbl}>Petugas ATD/PTTD</Text>
-                    <Text style={S.val}>{v(responses[0]?.officer_name)}</Text>
-                  </View>
-                  <View style={{ marginTop: 12 }}>
-                    <Text style={S.lbl}>Waktu Pengeluaran</Text>
-                    <Text style={S.valNormal}>
-                      {responses[0]?.release_date
-                        ? `${fmtDate(responses[0].release_date)} ${responses[0].release_time ?? ''}`
-                        : '—'}
-                    </Text>
-                  </View>
-                </View>
 
-                {/* Signature box */}
-                <View style={S.sigBox}>
-                  <Text style={[S.lbl, { marginBottom: 4 }]}>Tanda Tangan Penerima</Text>
-                  {sigResponse?.receiver_signature ? (
-                    <Image src={sigResponse.receiver_signature} style={S.sigImg} />
+              {/* 3-column signature row */}
+              <View style={[S.row, { alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 6 }]}>
+
+                {/* Box 1 — Pemohon Transfusi (Hospital/Doctor) */}
+                <View style={[S.sigBox, { flex: 1, marginRight: 8 }]}>
+                  <Text style={[S.lbl, { marginBottom: 4, textAlign: 'center' }]}>Pemohon Transfusi</Text>
+                  {request.requesting_hospital_signature ? (
+                    <Image src={request.requesting_hospital_signature} style={S.sigImg} />
                   ) : (
                     <View style={S.sigPlaceholder} />
                   )}
-                  <Text style={[S.lbl, { marginTop: 4 }]}>{v(sigResponse?.receiver_name ?? responses[0]?.receiver_name)}</Text>
+                  <Text style={[S.lbl, { marginTop: 4, textAlign: 'center' }]}>
+                    {v(request.requesting_doctor ?? request.requesting_hospital)}
+                  </Text>
                 </View>
 
-                {/* Officer stamp area */}
-                <View style={{ alignItems: 'center', width: 140, marginLeft: 16 }}>
-                  <Text style={S.lbl}>Petugas Pengeluaran</Text>
-                  <View style={{ height: 52, width: '100%', marginTop: 40, borderBottomWidth: 1, borderColor: C.border }} />
-                  <Text style={[S.valNormal, { marginTop: 4 }]}>{v(responses[0]?.officer_name)}</Text>
+                {/* Box 2 — Petugas PMI (Officer releasing the blood) */}
+                <View style={[S.sigBox, { flex: 1, marginRight: 8 }]}>
+                  <Text style={[S.lbl, { marginBottom: 4, textAlign: 'center' }]}>Petugas PMI</Text>
+                  {sigOfficerResponse?.officer_signature ? (
+                    <Image src={sigOfficerResponse.officer_signature} style={S.sigImg} />
+                  ) : (
+                    <View style={S.sigPlaceholder} />
+                  )}
+                  <Text style={[S.lbl, { marginTop: 4, textAlign: 'center' }]}>
+                    {v(firstResponse?.officer_name)}
+                  </Text>
+                </View>
+
+                {/* Box 3 — Pengambil Darah (Person picking up bags) */}
+                <View style={[S.sigBox, { flex: 1 }]}>
+                  <Text style={[S.lbl, { marginBottom: 4, textAlign: 'center' }]}>Pengambil Darah</Text>
+                  {sigReceiverResponse?.receiver_signature ? (
+                    <Image src={sigReceiverResponse.receiver_signature} style={S.sigImg} />
+                  ) : (
+                    <View style={S.sigPlaceholder} />
+                  )}
+                  <Text style={[S.lbl, { marginTop: 4, textAlign: 'center' }]}>
+                    {v(sigReceiverResponse?.receiver_name ?? firstResponse?.receiver_name)}
+                  </Text>
+                </View>
+
+              </View>
+
+              {/* Handover metadata */}
+              <View style={[S.row, { marginTop: 10 }]}>
+                <View style={S.col}>
+                  <Text style={S.lbl}>Waktu Pengeluaran</Text>
+                  <Text style={S.valNormal}>
+                    {firstResponse?.release_date
+                      ? `${fmtDate(firstResponse.release_date)} ${firstResponse.release_time ?? ''}`
+                      : '—'}
+                  </Text>
                 </View>
               </View>
             </View>

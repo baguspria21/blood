@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}))
     const bags = Math.max(1, parseInt(body.bags_donated, 10) || 1)
+    const description = typeof body.description === 'string' ? body.description.trim() : null
 
     const { data, error } = await supabase
       .from('volunteer_donations')
@@ -74,6 +75,7 @@ export async function POST(req: NextRequest) {
         blood_type:   profile.blood_type,
         rhesus:       profile.rhesus,
         bags_donated: bags,
+        description:  description || null,
         status:       'pending',
       })
       .select()
