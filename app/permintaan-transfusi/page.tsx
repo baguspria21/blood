@@ -170,6 +170,24 @@ export default function PermintaanTransfusiPage() {
     if (m === 0) return `${y} tahun`
     return `${y} tahun ${m} bulan`
   })()
+
+  // ── Auto-calculate age from Date of Birth ──────────────────────────────
+  const handleBirthDateChange = (dateStr: string) => {
+    setBirthDate(dateStr)
+    if (!dateStr) return
+    const today = new Date()
+    const birth = new Date(dateStr)
+    if (isNaN(birth.getTime())) return
+    let years = today.getFullYear() - birth.getFullYear()
+    let months = today.getMonth() - birth.getMonth()
+    if (months < 0) { years--; months += 12 }
+    if (today.getDate() < birth.getDate()) {
+      months--
+      if (months < 0) { years--; months += 12 }
+    }
+    setAgeYears(String(Math.max(0, years)))
+    setAgeMonths(String(Math.max(0, months)))
+  }
   const [contactPhone, setContactPhone] = useState('')
   const [requestDate, setRequestDate] = useState(new Date().toISOString().split('T')[0])
   const [neededDate, setNeededDate] = useState('')
@@ -347,7 +365,7 @@ export default function PermintaanTransfusiPage() {
             </div>
             
             <div className="flex flex-col gap-3">
-              <Link href="/" className="text-sm text-gray-500 hover:text-red-600 transition-colors font-medium">
+              <Link href="/rumah-sakit/dashboard" className="text-sm text-gray-500 hover:text-red-600 transition-colors font-medium">
                 ← Kembali ke Beranda
               </Link>
             </div>
@@ -534,8 +552,9 @@ export default function PermintaanTransfusiPage() {
                     type="date"
                     className="input-field"
                     value={birthDate}
-                    onChange={e => setBirthDate(e.target.value)}
+                    onChange={e => handleBirthDateChange(e.target.value)}
                   />
+                  <p className="text-xs text-gray-400 mt-1">Usia akan otomatis dihitung.</p>
                 </div>
                 <div>
                   <FieldLabel htmlFor="age-years-input">Umur (Tahun)</FieldLabel>

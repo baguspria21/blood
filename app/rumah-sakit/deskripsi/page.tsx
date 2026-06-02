@@ -29,20 +29,71 @@ interface Request {
   status: string
   admin_notes: string | null
   rejection_notes: string | null
+  estimated_pickup_time: string | null
   updated_at: string
   responses: TransfusionResponse[]
 }
 
+// ── Parsed unavailable item ───────────────────────────────────────────────────
+interface UnavailableItem {
+  label: string
+  note: string | null
+}
+
+/**
+ * Parse the rejection_notes field which has the format:
+ * "Tidak tersedia: WB Biasa (Stok habis), FFP"
+ * → [{ label: "WB Biasa", note: "Stok habis" }, { label: "FFP", note: null }]
+ */
+function parseUnavailableItems(notes: string | null): UnavailableItem[] {
+  if (!notes) return []
+  const prefix = 'Tidak tersedia: '
+  const body = notes.startsWith(prefix) ? notes.slice(prefix.length) : notes
+  // Split by ", " but carefully (notes inside parens shouldn't split)
+  const items: UnavailableItem[] = []
+  // Use a simple state machine to split by ", " at the top level
+  let current = ''
+  let depth = 0
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i]
+    if (ch === '(') depth++
+    else if (ch === ')') depth--
+    else if (ch === ',' && depth === 0 && body[i + 1] === ' ') {
+      items.push(parseItem(current.trim()))
+      current = ''
+      i++ // skip the space
+      continue
+    }
+    current += ch
+  }
+  if (current.trim()) items.push(parseItem(current.trim()))
+  return items
+}
+
+function parseItem(raw: string): UnavailableItem {
+  const match = raw.match(/^(.+?)\s*\((.+)\)$/)
+  if (match) return { label: match[1].trim(), note: match[2].trim() }
+  return { label: raw, note: null }
+}
+
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string; border: string; icon: string }> = {
   pending:   { label: 'Menunggu Verifikasi', color: '#b45309', bg: '#fef3c7', border: '#fde68a', icon: '⏳' },
-  approved:  { label: 'Sedang Diproses',    color: '#1d4ed8', bg: '#dbeafe', border: '#bfdbfe', icon: '🔄' },
-  completed: { label: 'Selesai',            color: '#15803d', bg: '#dcfce7', border: '#86efac', icon: '✅' },
-  rejected:  { label: 'Ditolak',            color: '#b91c1c', bg: '#fee2e2', border: '#fca5a5', icon: '❌' },
+  approved:  { label: 'Sedang Diproses',     color: '#1d4ed8', bg: '#dbeafe', border: '#bfdbfe', icon: '🔄' },
+  completed: { label: 'Selesai',             color: '#15803d', bg: '#dcfce7', border: '#86efac', icon: '✅' },
+  rejected:  { label: 'Ditolak',             color: '#b91c1c', bg: '#fee2e2', border: '#fca5a5', icon: '❌' },
 }
 
 function fmtDate(d: string | null) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+}
+
+function fmtDatetime(d: string | null) {
+  if (!d) return '—'
+  return new Date(d).toLocaleString('id-ID', {
+    weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
 }
 
 function BloodBagCard({ r }: { r: TransfusionResponse }) {
@@ -86,12 +137,12 @@ export default function RumahSakitDeskripsiPage() {
 
   async function fetchAll() {
     const supabase = getSupabase()
-    // Fetch requests with their responses
     const { data } = await supabase
       .from('transfusion_requests')
       .select(`
         id, patient_name, blood_type, rhesus, requesting_hospital,
-        request_date, status, admin_notes, rejection_notes, updated_at,
+        request_date, status, admin_notes, rejection_notes,
+        estimated_pickup_time, updated_at,
         transfusion_responses (
           id, transfusion_request_id, bag_number, blood_category,
           blood_type_abo, rhesus, volume_cc, collection_date,
@@ -107,7 +158,6 @@ export default function RumahSakitDeskripsiPage() {
         responses: (r.transfusion_responses ?? []) as TransfusionResponse[],
       }))
       setRequests(mapped)
-      // Auto-expand the first request that has responses
       if (!expandedId) {
         const first = mapped.find(r => r.responses.length > 0 || r.status !== 'pending')
         if (first) setExpandedId(first.id)
@@ -121,7 +171,6 @@ export default function RumahSakitDeskripsiPage() {
     fetchAll()
 
     const supabase = getSupabase()
-    // Realtime: subscribe to admin changes on both tables
     const channel = supabase
       .channel('rs-deskripsi-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transfusion_requests' }, () => {
@@ -154,7 +203,7 @@ export default function RumahSakitDeskripsiPage() {
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-gray-900">Deskripsi Respons Admin</h1>
+          <h1 className="font-display text-2xl font-bold text-gray-900">Deskripsi &amp; Riwayat Pemohon</h1>
           <p className="text-gray-500 text-sm mt-1">
             Detail penanganan dan kantong darah yang dikeluarkan oleh UTD Bank Darah
             {lastUpdated && (
@@ -181,6 +230,9 @@ export default function RumahSakitDeskripsiPage() {
             const cfg = STATUS_CFG[req.status] ?? STATUS_CFG.pending
             const isExpanded = expandedId === req.id
             const hasResponses = req.responses.length > 0
+            const unavailableItems = parseUnavailableItems(req.rejection_notes)
+            const hasUnavailable = unavailableItems.length > 0
+            const hasPickupTime = !!req.estimated_pickup_time
 
             return (
               <div key={req.id} className="card overflow-hidden"
@@ -208,6 +260,11 @@ export default function RumahSakitDeskripsiPage() {
                       {hasResponses && (
                         <span className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">
                           🩸 {req.responses.length} kantong
+                        </span>
+                      )}
+                      {hasUnavailable && (
+                        <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-full">
+                          ⚠ {unavailableItems.length} tidak tersedia
                         </span>
                       )}
                     </div>
@@ -242,7 +299,7 @@ export default function RumahSakitDeskripsiPage() {
                         <div>
                           <p className="text-sm font-bold text-blue-800">Sedang Diproses oleh UTD</p>
                           <p className="text-xs text-blue-700 mt-0.5">
-                            Admin UTD sedang menyiapkan darah. Detail kantong akan muncul di bawah saat siap.
+                            Admin UTD sedang menyiapkan darah. Detail kantong tersedia di bawah.
                           </p>
                         </div>
                       </div>
@@ -250,22 +307,70 @@ export default function RumahSakitDeskripsiPage() {
 
                     {req.status === 'rejected' && (
                       <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                        <p className="text-sm font-bold text-red-800 mb-1">❌ Permintaan Ditolak</p>
+                        <p className="text-sm font-bold text-red-800 mb-1">❌ Permintaan Ditolak / Darah Tidak Tersedia</p>
                         {req.rejection_notes ? (
-                          <>
-                            <p className="text-xs font-bold text-red-600 uppercase tracking-wider mb-1">Alasan dari Admin UTD</p>
-                            <p className="text-sm text-red-700">{req.rejection_notes}</p>
-                          </>
+                          <p className="text-sm text-red-700">{req.rejection_notes}</p>
                         ) : (
-                          <p className="text-xs text-red-600">Tidak ada catatan penolakan. Hubungi Admin UTD untuk informasi lebih lanjut.</p>
+                          <p className="text-xs text-red-600">Tidak ada catatan. Hubungi Admin UTD untuk informasi lebih lanjut.</p>
                         )}
                       </div>
                     )}
 
+                    {/* Estimated pickup time — prominent display */}
+                    {hasPickupTime && (req.status === 'approved' || req.status === 'completed') && (
+                      <div
+                        className="rounded-xl p-4 flex items-start gap-3"
+                        style={{ background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', border: '1.5px solid #93c5fd' }}
+                      >
+                        <span className="text-2xl flex-shrink-0">⏰</span>
+                        <div>
+                          <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-0.5">Estimasi Waktu Pengambilan Darah</p>
+                          <p className="text-sm font-bold text-blue-900">{fmtDatetime(req.estimated_pickup_time)}</p>
+                          <p className="text-xs text-blue-600 mt-0.5">
+                            Pastikan petugas atau keluarga pasien sudah siap di UTD/PMI pada waktu tersebut.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Admin notes (general) */}
                     {req.admin_notes && req.status !== 'rejected' && (
                       <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
                         <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">📝 Catatan dari Admin</p>
                         <p className="text-sm text-gray-700">{req.admin_notes}</p>
+                      </div>
+                    )}
+
+                    {/* Unavailable items section */}
+                    {hasUnavailable && (req.status === 'approved' || req.status === 'completed' || req.status === 'rejected') && (
+                      <div className="rounded-xl overflow-hidden border border-orange-200">
+                        <div className="px-4 py-2.5 flex items-center gap-2"
+                          style={{ background: 'linear-gradient(135deg, #fed7aa, #fdba74)' }}>
+                          <span className="text-sm">⚠️</span>
+                          <p className="text-xs font-bold text-orange-900 uppercase tracking-wider">
+                            Produk Tidak Tersedia ({unavailableItems.length} item)
+                          </p>
+                        </div>
+                        <div className="p-3 space-y-2" style={{ background: '#fff7ed' }}>
+                          {unavailableItems.map((item, idx) => (
+                            <div key={idx} className="flex items-start gap-2.5 p-2.5 rounded-lg bg-white border border-orange-100">
+                              <span className="text-base flex-shrink-0 mt-0.5">❌</span>
+                              <div>
+                                <p className="text-sm font-bold text-gray-800">{item.label}</p>
+                                {item.note ? (
+                                  <p className="text-xs text-orange-700 mt-0.5">
+                                    <span className="font-semibold">Keterangan:</span> {item.note}
+                                  </p>
+                                ) : (
+                                  <p className="text-xs text-gray-400 mt-0.5">Tidak ada keterangan tambahan</p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          <p className="text-[10px] text-orange-600 font-medium px-1">
+                            Hubungi Admin UTD untuk informasi ketersediaan selanjutnya.
+                          </p>
+                        </div>
                       </div>
                     )}
 

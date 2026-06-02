@@ -88,6 +88,7 @@ export async function POST(req: NextRequest) {
       receiver_name,
       receiver_signature,
       officer_signature,
+      estimated_pickup_time,
     } = body
 
     if (!transfusion_request_id) {
@@ -208,6 +209,10 @@ export async function POST(req: NextRequest) {
     // ── Update parent request ─────────────────────────────────────────────────
     const requestUpdate: Record<string, unknown> = { status: newStatus }
     if (rejectionNotes !== null) requestUpdate.rejection_notes = rejectionNotes
+    // Store estimated pickup time (DIPROSES stage)
+    if (estimated_pickup_time && newStatus === 'approved') {
+      requestUpdate.estimated_pickup_time = estimated_pickup_time
+    }
 
     await supabase
       .from('transfusion_requests')

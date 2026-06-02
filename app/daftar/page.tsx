@@ -26,6 +26,7 @@ const SUB_DISTRICTS = [
 ]
 
 type BloodType = (typeof BLOOD_TYPES)[number]
+type BloodTypeOrUnknown = BloodType | 'tidak_tahu'
 type Rhesus = '+' | '-'
 
 interface FormData {
@@ -33,7 +34,7 @@ interface FormData {
   phone: string
   email: string
   password: string
-  blood_type: BloodType | ''
+  blood_type: BloodTypeOrUnknown | ''
   rhesus: Rhesus | ''
   sub_district: string
 }
@@ -201,7 +202,7 @@ export default function DaftarRelawanPage() {
     form.email.includes('@') &&
     form.password.length >= 8 &&
     form.blood_type !== '' &&
-    form.rhesus !== '' &&
+    (form.blood_type === 'tidak_tahu' || form.rhesus !== '') &&
     form.sub_district !== ''
 
   // ---- Handlers ----
@@ -217,10 +218,6 @@ export default function DaftarRelawanPage() {
     setError(null)
 
     try {
-      // Pass ALL profile data as signUp metadata.
-      // The database trigger `handle_new_user` will read this and
-      // automatically INSERT a row into public.profiles — no client-side
-      // INSERT needed (avoids the 401 Unauthorized error).
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
@@ -228,8 +225,8 @@ export default function DaftarRelawanPage() {
           data: {
             name:         form.name.trim(),
             phone_number: form.phone.trim(),
-            blood_type:   form.blood_type,
-            rhesus:       form.rhesus,
+            blood_type:   form.blood_type === 'tidak_tahu' ? null : form.blood_type,
+            rhesus:       form.blood_type === 'tidak_tahu' ? null : form.rhesus,
             sub_district: form.sub_district,
           },
         },
@@ -237,13 +234,10 @@ export default function DaftarRelawanPage() {
 
       if (authError) throw authError
 
-      // signUp returns a user even before email confirmation.
-      // If identities is empty the email is already taken.
       if (authData.user && authData.user.identities?.length === 0) {
         throw new Error('Email ini sudah terdaftar. Gunakan email lain atau langsung masuk.')
       }
 
-      // Success — the DB trigger handles profile creation asynchronously.
       setSuccess(true)
 
     } catch (err: unknown) {
@@ -274,7 +268,6 @@ export default function DaftarRelawanPage() {
       className="min-h-screen px-4 py-8 md:py-12"
       style={{ background: 'linear-gradient(160deg, #fff1f2 0%, #ffffff 55%, #fff1f2 100%)' }}
     >
-      {/* ── Decorative circles ── */}
       <div
         aria-hidden
         className="fixed top-0 right-0 w-72 h-72 rounded-full opacity-10 pointer-events-none"
@@ -287,7 +280,6 @@ export default function DaftarRelawanPage() {
       />
 
       <div className="relative z-10 w-full max-w-md mx-auto">
-        {/* ── Logo & Header ── */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex flex-col items-center gap-2 no-underline">
             <div
@@ -305,7 +297,6 @@ export default function DaftarRelawanPage() {
           </Link>
         </div>
 
-        {/* ── Card ── */}
         <div className="card p-6 md:p-8">
           <StepBadge step={1} total={1} />
 
@@ -316,7 +307,6 @@ export default function DaftarRelawanPage() {
             Jadi pahlawan darah. Isi data diri Anda untuk mulai menerima notifikasi permintaan darah.
           </p>
 
-          {/* ── Error Alert ── */}
           {error && (
             <div className="alert alert-error mb-5" role="alert" id="reg-error-alert">
               <strong>Oops!</strong> {error}
@@ -325,7 +315,6 @@ export default function DaftarRelawanPage() {
 
           <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
 
-            {/* Nama Lengkap */}
             <Field label="Nama Lengkap" required>
               <input
                 id="reg-name"
@@ -339,7 +328,6 @@ export default function DaftarRelawanPage() {
               />
             </Field>
 
-            {/* Nomor WhatsApp */}
             <Field
               label="Nomor WhatsApp"
               required
@@ -365,7 +353,6 @@ export default function DaftarRelawanPage() {
               </div>
             </Field>
 
-            {/* Email */}
             <Field label="Email" required>
               <input
                 id="reg-email"
@@ -379,7 +366,6 @@ export default function DaftarRelawanPage() {
               />
             </Field>
 
-            {/* Password */}
             <Field label="Kata Sandi" required hint="Minimal 8 karakter">
               <div className="relative">
                 <input
@@ -416,7 +402,6 @@ export default function DaftarRelawanPage() {
               </div>
             </Field>
 
-            {/* Divider */}
             <div className="flex items-center gap-3 my-1">
               <div className="flex-1 h-px bg-gray-200" />
               <span className="text-xs text-gray-400 font-medium whitespace-nowrap">Data Medis</span>
@@ -425,15 +410,37 @@ export default function DaftarRelawanPage() {
 
             {/* Golongan Darah */}
             <Field label="Golongan Darah" required>
-              <SegmentGroup<BloodType>
-                id="blood-type"
-                options={BLOOD_TYPES}
-                value={form.blood_type}
-                onChange={(val) => updateField('blood_type', val)}
-              />
+              <div className="space-y-2">
+                <SegmentGroup<BloodType>
+                  id="blood-type"
+                  options={BLOOD_TYPES}
+                  value={form.blood_type === 'tidak_tahu' ? '' : form.blood_type as BloodType | ''}
+                  onChange={(val) => updateField('blood_type', val)}
+                />
+                {/* Tidak Tahu option */}
+                <button
+                  type="button"
+                  id="blood-type-tidak-tahu"
+                  className={`w-full py-2 px-4 rounded-xl text-sm font-semibold border-2 transition-all ${
+                    form.blood_type === 'tidak_tahu'
+                      ? 'border-gray-400 bg-gray-600 text-white'
+                      : 'border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600'
+                  }`}
+                  onClick={() => updateField('blood_type', 'tidak_tahu')}
+                  aria-pressed={form.blood_type === 'tidak_tahu'}
+                >
+                  🤷 Tidak Tahu Golongan Darah
+                </button>
+                {form.blood_type === 'tidak_tahu' && (
+                  <p className="text-xs text-gray-400 px-1">
+                    Tidak masalah! Anda tetap bisa mendaftar. Golongan darah bisa diperbarui nanti setelah pemeriksaan.
+                  </p>
+                )}
+              </div>
             </Field>
 
-            {/* Rhesus */}
+            {/* Rhesus — only shown if blood type is known */}
+            {form.blood_type !== 'tidak_tahu' && (
             <Field label="Rhesus" required>
               <SegmentGroup<Rhesus>
                 id="rhesus"
@@ -442,6 +449,7 @@ export default function DaftarRelawanPage() {
                 onChange={(val) => updateField('rhesus', val)}
               />
             </Field>
+            )}
 
             {/* Kecamatan */}
             <Field

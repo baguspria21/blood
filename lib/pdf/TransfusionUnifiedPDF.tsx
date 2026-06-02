@@ -15,6 +15,9 @@ const C = {
   green:     '#15803d',
   amber:     '#b45309',
   blue:      '#1d4ed8',
+  orange:    '#c2410c',
+  orangeLight: '#fff7ed',
+  orangeBorder: '#fdba74',
 }
 
 const S = StyleSheet.create({
@@ -127,6 +130,47 @@ const S = StyleSheet.create({
   tableCell: { flex: 1, fontSize: 8 },
   tableCellBold: { flex: 1, fontSize: 8, fontFamily: 'Helvetica-Bold' },
 
+  // ── Unavailable items box ─────────────────────────────────────────────────
+  unavailBox: {
+    backgroundColor: C.orangeLight,
+    borderWidth: 1,
+    borderColor: C.orangeBorder,
+    borderRadius: 4,
+    padding: 8,
+    marginBottom: 12,
+  },
+  unavailTitle: {
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
+    color: C.orange,
+    marginBottom: 5,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  unavailRow: {
+    flexDirection: 'row',
+    marginBottom: 3,
+    paddingBottom: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: C.orangeBorder,
+  },
+  unavailLabel: { fontSize: 8, fontFamily: 'Helvetica-Bold', color: C.black, flex: 1.5 },
+  unavailNote:  { fontSize: 8, color: C.orange, flex: 2 },
+
+  // ── Pickup time box ───────────────────────────────────────────────────────
+  pickupBox: {
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#93c5fd',
+    borderRadius: 4,
+    padding: 8,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pickupLabel: { fontSize: 7.5, color: C.blue, marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.4 },
+  pickupVal:   { fontSize: 9, fontFamily: 'Helvetica-Bold', color: C.blue },
+
   // ── Divider ───────────────────────────────────────────────────────────────
   divider: { borderTopWidth: 1, borderTopColor: C.border, marginVertical: 12 },
 
@@ -181,7 +225,44 @@ function fmtDate(d?: string | null) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
 }
+function fmtDatetime(d?: string | null) {
+  if (!d) return '—'
+  return new Date(d).toLocaleString('id-ID', {
+    weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+}
 function v(x: unknown): string { return x != null && String(x).trim() ? String(x) : '—' }
+
+// ── Parse unavailable items from rejection_notes ─────────────────────────────
+interface UnavailItem { label: string; note: string | null }
+function parseUnavail(notes?: string | null): UnavailItem[] {
+  if (!notes) return []
+  const prefix = 'Tidak tersedia: '
+  const body = notes.startsWith(prefix) ? notes.slice(prefix.length) : notes
+  const items: UnavailItem[] = []
+  let current = ''
+  let depth = 0
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i]
+    if (ch === '(') depth++
+    else if (ch === ')') depth--
+    else if (ch === ',' && depth === 0 && body[i + 1] === ' ') {
+      items.push(parseUnavailItem(current.trim()))
+      current = ''
+      i++
+      continue
+    }
+    current += ch
+  }
+  if (current.trim()) items.push(parseUnavailItem(current.trim()))
+  return items
+}
+function parseUnavailItem(raw: string): UnavailItem {
+  const match = raw.match(/^(.+?)\s*\((.+)\)$/)
+  if (match) return { label: match[1].trim(), note: match[2].trim() }
+  return { label: raw, note: null }
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface UnifiedRequest {
@@ -220,6 +301,7 @@ export interface UnifiedRequest {
   factor_other?: string | null
   status?: string
   rejection_notes?: string | null
+  estimated_pickup_time?: string | null
   requesting_hospital_signature?: string | null
   created_at?: string
 }
@@ -295,6 +377,10 @@ export function TransfusionUnifiedPDF({ request, responses = [] }: TransfusionUn
   const firstResponse = responses[0]
   const sigReceiverResponse = responses.find(r => r.receiver_signature)
   const sigOfficerResponse  = responses.find(r => r.officer_signature)
+
+  // Parse unavailable items from rejection_notes (present in partial or full rejection)
+  const unavailItems = parseUnavail(request.rejection_notes)
+  const hasUnavail = unavailItems.length > 0 && (isResponded || isRejected)
 
   return (
     <Document title={`${docTitle(status)} — ${request.patient_name}`}>
@@ -450,14 +536,15 @@ export function TransfusionUnifiedPDF({ request, responses = [] }: TransfusionUn
         {!isResponded && !isRejected && (
           <View style={[S.row, { marginTop: 20, justifyContent: 'space-between' }]}>
             <View style={{ alignItems: 'center', width: 160 }}>
-              <Text style={S.lbl}>Dokter yang Meminta</Text>
-              <View style={{ height: 52, borderBottomWidth: 1, borderBottomColor: C.border, width: '100%', marginTop: 40 }} />
-              <Text style={[S.valNormal, { marginTop: 4 }]}>{v(request.requesting_doctor)}</Text>
-            </View>
-            <View style={{ alignItems: 'center', width: 160 }}>
-              <Text style={S.lbl}>Petugas Penerima UTD</Text>
-              <View style={{ height: 52, borderBottomWidth: 1, borderBottomColor: C.border, width: '100%', marginTop: 40 }} />
-              <Text style={[S.valNormal, { marginTop: 4 }]}>( __________________ )</Text>
+              <Text style={[S.lbl, { marginBottom: 4, textAlign: 'center' }]}>Pemohon Transfusi</Text>
+              {request.requesting_hospital_signature ? (
+                <Image src={request.requesting_hospital_signature} style={S.sigImg} />
+              ) : (
+                <View style={S.sigPlaceholder} />
+              )}
+              <Text style={[S.lbl, { marginTop: 4, textAlign: 'center' }]}>
+                {v(request.requesting_doctor ?? request.requesting_hospital)}
+              </Text>
             </View>
           </View>
         )}
@@ -488,19 +575,54 @@ export function TransfusionUnifiedPDF({ request, responses = [] }: TransfusionUn
         )}
 
         {/* ════════════════════════════════════════════════════════════
-            PART II — RESPONSE DATA (only when approved/completed)
+            PART IV — UNAVAILABLE ITEMS (partial or full unavailability)
+        ═══════════════════════════════════════════════════════════ */}
+        {hasUnavail && (
+          <>
+            <View style={S.divider} />
+            <View style={S.section}>
+              <Text style={S.sectionTitle}>IV. Produk Tidak Tersedia (Catatan Stok)</Text>
+              <View style={S.unavailBox}>
+                <Text style={S.unavailTitle}>⚠ Item Tidak Tersedia / Stok Habis</Text>
+                {unavailItems.map((item, i) => (
+                  <View key={i} style={[S.unavailRow, i === unavailItems.length - 1 ? { borderBottomWidth: 0, marginBottom: 0, paddingBottom: 0 } : {}]}>
+                    <Text style={S.unavailLabel}>{item.label}</Text>
+                    <Text style={S.unavailNote}>{item.note ?? 'Tidak ada keterangan'}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════
+            ESTIMATED PICKUP TIME (when DIPROSES)
+        ═══════════════════════════════════════════════════════════ */}
+        {isResponded && request.estimated_pickup_time && (
+          <View style={S.pickupBox}>
+            <View>
+              <Text style={S.pickupLabel}>⏰ Estimasi Waktu Pengambilan Darah</Text>
+              <Text style={S.pickupVal}>{fmtDatetime(request.estimated_pickup_time)}</Text>
+            </View>
+          </View>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════
+            PART V — RESPONSE DATA (only when approved/completed)
         ═══════════════════════════════════════════════════════════ */}
         {isResponded && responses.length > 0 && (
           <>
             <View style={S.divider} />
             <View style={S.section}>
-              <Text style={S.sectionTitle}>IV. Data Kantong Darah yang Dikeluarkan</Text>
+              <Text style={S.sectionTitle}>
+                {hasUnavail ? 'V.' : 'IV.'} Data Kantong Darah yang Dikeluarkan
+              </Text>
               <View style={S.tableHead}>
                 {['No. Kantong', 'Jenis', 'Volume', 'Gol.', 'Rh', 'Tgl Ambil', 'Petugas ATD/PTTD', 'Tgl & Jam Keluar'].map((h, i) => (
                   <Text key={i} style={i === 0 ? [S.tableCellBold, { flex: 1.5 }] : S.tableCellBold}>{h}</Text>
                 ))}
               </View>
-              {responses.map((r, idx) => (
+              {responses.filter(r => r.bag_number !== 'REJECTED').map((r, idx) => (
                 <View key={r.id} style={idx % 2 === 1 ? [S.tableRow, S.tableRowAlt] : S.tableRow}>
                   <Text style={[S.tableCellBold, { flex: 1.5 }]}>{r.bag_number}</Text>
                   <Text style={S.tableCell}>{v(r.blood_category)}</Text>
@@ -519,13 +641,15 @@ export function TransfusionUnifiedPDF({ request, responses = [] }: TransfusionUn
         )}
 
         {/* ════════════════════════════════════════════════════════════
-            PART III — SIGNATURE (only when responded: approved/completed)
+            PART — SIGNATURE (only when responded: approved/completed)
         ═══════════════════════════════════════════════════════════ */}
         {isResponded && (
           <>
             <View style={S.divider} />
             <View style={S.section}>
-              <Text style={S.sectionTitle}>V. Tanda Tangan &amp; Serah Terima</Text>
+              <Text style={S.sectionTitle}>
+                {hasUnavail ? 'VI.' : 'V.'} Tanda Tangan &amp; Serah Terima
+              </Text>
 
               {/* 3-column signature row */}
               <View style={[S.row, { alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 6 }]}>

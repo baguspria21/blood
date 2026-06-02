@@ -23,6 +23,7 @@ interface TransfusionRequest {
   hemoglobin: number | null
   status: string
   rejection_notes?: string | null
+  estimated_pickup_time?: string | null
   wb_fresh_volume: number | null
   wb_new_volume: number | null
   wb_regular_volume: number | null
@@ -109,6 +110,14 @@ function buildProductSections(req: TransfusionRequest, today: string): ProductSe
   if (req.factor_other)                 add('other',        req.factor_other,          'lain-lain')
 
   return sections
+}
+
+function fmtPickupTime(dt: string | null | undefined): string {
+  if (!dt) return '—'
+  return new Date(dt).toLocaleString('id-ID', {
+    weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -387,30 +396,25 @@ function ProductSectionCard({
   )
 }
 
-// ── Signature Modal ────────────────────────────────────────────────────────────
-interface SignatureModalProps {
+// ── Officer Signature Modal (DIPROSES stage) ──────────────────────────────────
+// Only shows PMI Officer signature. Receiver is captured separately during handover.
+interface OfficerSignatureModalProps {
   availableCount: number
   unavailableCount: number
   officerSigRef: React.RefObject<SignaturePadHandle | null>
-  receiverSigRef: React.RefObject<SignaturePadHandle | null>
-  receiverName: string
-  onReceiverNameChange: (v: string) => void
   onConfirm: () => void
   onClose: () => void
   submitting: boolean
 }
 
-function SignatureModal({
+function OfficerSignatureModal({
   availableCount,
   unavailableCount,
   officerSigRef,
-  receiverSigRef,
-  receiverName,
-  onReceiverNameChange,
   onConfirm,
   onClose,
   submitting,
-}: SignatureModalProps) {
+}: OfficerSignatureModalProps) {
   const isFullRejection = availableCount === 0
   const isPartial = unavailableCount > 0 && availableCount > 0
 
@@ -420,27 +424,27 @@ function SignatureModal({
       style={{ background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)' }}
     >
       <div
-        className="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl"
+        className="w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl"
         style={{ background: '#fff', maxHeight: '90vh', overflowY: 'auto' }}
       >
         {/* Header */}
         <div
           className="px-6 py-4 flex items-center justify-between"
-          style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)' }}
+          style={{ background: 'linear-gradient(135deg, #1d4ed8, #1e40af)' }}
         >
           <div>
-            <h3 className="font-display font-bold text-white text-lg">✍️ Tanda Tangan</h3>
-            <p className="text-red-200 text-xs mt-0.5">
+            <h3 className="font-display font-bold text-white text-lg">✍️ Tanda Tangan Petugas PMI</h3>
+            <p className="text-blue-200 text-xs mt-0.5">
               {isFullRejection
-                ? 'Konfirmasi: Semua produk tidak tersedia — tanda tangan Petugas PMI wajib'
+                ? 'Konfirmasi: Semua produk tidak tersedia'
                 : isPartial
                   ? `Konfirmasi sebagian — ${availableCount} tersedia, ${unavailableCount} tidak tersedia`
-                  : `Konfirmasi ${availableCount} produk tersedia — Petugas PMI & Pengambil Darah`}
+                  : `Konfirmasi ${availableCount} produk tersedia`}
             </p>
           </div>
           <button
             type="button"
-            id="close-sig-modal-btn"
+            id="close-officer-sig-modal-btn"
             onClick={onClose}
             className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors text-xl font-bold leading-none"
           >
@@ -448,68 +452,157 @@ function SignatureModal({
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Partial summary banner */}
+        <div className="p-6 space-y-5">
+          {/* Partial banner */}
           {isPartial && (
             <div className="rounded-xl p-3 text-xs font-medium"
               style={{ background: '#fffbeb', border: '1.5px solid #fde68a', color: '#92400e' }}>
-              ⚠️ Pemenuhan <strong>sebagian</strong>: produk yang tidak tersedia akan dicatat dalam keterangan permintaan.
+              ⚠️ Pemenuhan <strong>sebagian</strong>: produk yang tidak tersedia akan dicatat. Pengambil Darah akan menandatangani saat pengambilan.
             </div>
           )}
 
-          {/* A: PMI Officer (always) */}
+          {/* PMI Officer Signature — the only signature at this stage */}
           <div>
             <div className="flex items-center gap-2 mb-3">
               <span className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black text-white"
                 style={{ background: 'linear-gradient(135deg, #1d4ed8, #1e40af)' }}>A</span>
               <p className="text-sm font-bold text-gray-800">
-                Tanda Tangan Petugas PMI
+                Tanda Tangan Petugas PMI / ATD
                 {isFullRejection && <span className="ml-2 text-xs font-normal text-gray-500">(verifikasi stok)</span>}
               </p>
             </div>
-            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+            <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-3">
               <p className="text-[10px] text-gray-400 font-medium mb-2">✍️ Tanda tangan petugas ATD/PTTD yang bertugas:</p>
               <SignaturePad ref={officerSigRef} id="officer-sig-canvas" />
             </div>
           </div>
 
-          {/* B: Receiver (only if there are available items) */}
+          {/* Info about receiver signature */}
           {!isFullRejection && (
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black text-white"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed, #5b21b6)' }}>B</span>
-                <p className="text-sm font-bold text-gray-800">Tanda Tangan Pengambil Darah</p>
-              </div>
-              <div className="space-y-3">
-                <div>
-                  <Label>Nama Pengambil Darah (Keluarga / Petugas RS)</Label>
-                  <input id="receiver-name-modal-input" type="text" className="input-field"
-                    placeholder="Nama lengkap pengambil darah"
-                    value={receiverName} onChange={e => onReceiverNameChange(e.target.value)} />
-                </div>
-                <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-                  <p className="text-[10px] text-gray-400 font-medium mb-2">✍️ Tanda tangan pengambil darah:</p>
-                  <SignaturePad ref={receiverSigRef} id="receiver-sig-canvas" />
-                </div>
-              </div>
+            <div className="rounded-xl p-3 text-xs flex items-start gap-2"
+              style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534' }}>
+              <span className="text-base flex-shrink-0">ℹ️</span>
+              <p>
+                <strong>Tanda tangan Pengambil Darah</strong> akan diminta terpisah saat proses serah terima darah (status: Selesai).
+              </p>
             </div>
           )}
 
           {/* Confirm */}
           <button
             type="button"
-            id="confirm-signatures-btn"
+            id="confirm-officer-signature-btn"
             onClick={onConfirm}
             disabled={submitting}
             className="w-full py-3.5 px-6 rounded-xl font-bold text-sm text-white transition-all flex items-center justify-center gap-2"
-            style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)', boxShadow: '0 4px 14px rgba(220,38,38,0.35)' }}
+            style={{ background: 'linear-gradient(135deg, #1d4ed8, #1e40af)', boxShadow: '0 4px 14px rgba(29,78,216,0.35)' }}
           >
             {submitting
               ? <><span className="spinner" /> Menyimpan...</>
               : isFullRejection
                 ? '💾 Konfirmasi: Semua Tidak Tersedia'
-                : `💾 Simpan & Konfirmasi Tanda Tangan`}
+                : `💾 Konfirmasi & Simpan (DIPROSES)`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Handover Modal (SELESAI stage) ────────────────────────────────────────────
+// Only shows Receiver signature. Officer has already signed.
+interface HandoverModalProps {
+  receiverSigRef: React.RefObject<SignaturePadHandle | null>
+  receiverName: string
+  onReceiverNameChange: (v: string) => void
+  onConfirm: () => void
+  onClose: () => void
+  submitting: boolean
+}
+
+function HandoverModal({
+  receiverSigRef,
+  receiverName,
+  onReceiverNameChange,
+  onConfirm,
+  onClose,
+  submitting,
+}: HandoverModalProps) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)' }}
+    >
+      <div
+        className="w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl"
+        style={{ background: '#fff', maxHeight: '90vh', overflowY: 'auto' }}
+      >
+        {/* Header */}
+        <div
+          className="px-6 py-4 flex items-center justify-between"
+          style={{ background: 'linear-gradient(135deg, #15803d, #166534)' }}
+        >
+          <div>
+            <h3 className="font-display font-bold text-white text-lg">🤝 Serah Terima Darah</h3>
+            <p className="text-green-200 text-xs mt-0.5">
+              Konfirmasi pengambilan darah — tanda tangan Pengambil Darah wajib
+            </p>
+          </div>
+          <button
+            type="button"
+            id="close-handover-modal-btn"
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors text-xl font-bold leading-none"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <div className="rounded-xl p-3 text-xs flex items-start gap-2"
+            style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534' }}>
+            <span className="text-base flex-shrink-0">🩸</span>
+            <p>Darah telah disiapkan oleh PMI. Minta pengambil darah untuk menandatangani sebelum membawa kantong darah.</p>
+          </div>
+
+          {/* Receiver name */}
+          <div>
+            <Label>Nama Pengambil Darah (Keluarga / Petugas RS) *</Label>
+            <input
+              id="handover-receiver-name-input"
+              type="text"
+              className="input-field"
+              placeholder="Nama lengkap pengambil darah"
+              value={receiverName}
+              onChange={e => onReceiverNameChange(e.target.value)}
+            />
+          </div>
+
+          {/* Receiver Signature — the only signature at this stage */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black text-white"
+                style={{ background: 'linear-gradient(135deg, #15803d, #166534)' }}>✍</span>
+              <p className="text-sm font-bold text-gray-800">Tanda Tangan Pengambil Darah</p>
+            </div>
+            <div className="rounded-xl border border-green-100 bg-green-50/30 p-3">
+              <p className="text-[10px] text-gray-400 font-medium mb-2">✍️ Tanda tangan pengambil darah (keluarga pasien / petugas RS):</p>
+              <SignaturePad ref={receiverSigRef} id="receiver-sig-canvas" />
+            </div>
+          </div>
+
+          {/* Confirm */}
+          <button
+            type="button"
+            id="confirm-handover-btn"
+            onClick={onConfirm}
+            disabled={submitting}
+            className="w-full py-3.5 px-6 rounded-xl font-bold text-sm text-white transition-all flex items-center justify-center gap-2"
+            style={{ background: 'linear-gradient(135deg, #15803d, #166534)', boxShadow: '0 4px 14px rgba(21,128,61,0.35)' }}
+          >
+            {submitting
+              ? <><span className="spinner" /> Memproses...</>
+              : '✅ Konfirmasi Serah Terima — Tandai SELESAI'}
           </button>
         </div>
       </div>
@@ -540,30 +633,35 @@ export function ResponseForm({ request, existingResponses }: Props) {
     release_time:  now,
     blood_type_abo: request.blood_type ?? '',
     rhesus:         request.rhesus === '+' ? 'Positif' : request.rhesus === '-' ? 'Negatif' : '',
+    estimated_pickup_time: '',
   })
   const updateOfficer = (k: keyof typeof officer, v: string) =>
     setOfficer(prev => ({ ...prev, [k]: v }))
 
-  // ── Receiver (modal) ─────────────────────────────────────────────────────
+  // ── Handover / Receiver ──────────────────────────────────────────────────
   const [receiverName, setReceiverName] = useState('')
-  const officerSigRef = useRef<SignaturePadHandle>(null)
+  const officerSigRef  = useRef<SignaturePadHandle>(null)
   const receiverSigRef = useRef<SignaturePadHandle>(null)
 
   // ── UI state ─────────────────────────────────────────────────────────────
-  const [showSignModal, setShowSignModal] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [successCount, setSuccessCount] = useState(0)
-  const [responses, setResponses] = useState<TransfusionResponse[]>(existingResponses)
-  const [markingDone, setMarkingDone] = useState(false)
-  const [currentStatus, setCurrentStatus] = useState(request.status)
+  const [showOfficerModal, setShowOfficerModal]   = useState(false)
+  const [showHandoverModal, setShowHandoverModal]  = useState(false)
+  const [submitting, setSubmitting]                = useState(false)
+  const [handoverSubmitting, setHandoverSubmitting] = useState(false)
+  const [error, setError]                          = useState<string | null>(null)
+  const [handoverError, setHandoverError]          = useState<string | null>(null)
+  const [successCount, setSuccessCount]            = useState(0)
+  const [diprosesSuccess, setDiprosesSuccess]      = useState(false) // hides form on success
+  const [responses, setResponses]                  = useState<TransfusionResponse[]>(existingResponses)
+  const [currentStatus, setCurrentStatus]          = useState(request.status)
 
-  const BLOOD_TYPES = ['A', 'B', 'AB', 'O']
+  const BLOOD_TYPES    = ['A', 'B', 'AB', 'O']
   const RHESUS_OPTIONS = ['Positif', 'Negatif']
   const isFinished = currentStatus === 'completed' || currentStatus === 'rejected'
+  const isDiproses = currentStatus === 'approved'
 
   // ── Derived counts ───────────────────────────────────────────────────────
-  const availableCount = productSections.filter(s => s.status === 'tersedia').length
+  const availableCount   = productSections.filter(s => s.status === 'tersedia').length
   const unavailableCount = productSections.filter(s => s.status === 'tidak_tersedia').length
 
   // ── Validation ───────────────────────────────────────────────────────────
@@ -579,13 +677,12 @@ export function ResponseForm({ request, existingResponses }: Props) {
     return null
   }
 
-  // ── Submit ────────────────────────────────────────────────────────────────
-  const handleSubmit = async () => {
+  // ── Submit (DIPROSES) ─────────────────────────────────────────────────────
+  const handleSubmitDiproses = async () => {
     setError(null)
     setSubmitting(true)
     try {
-      const officerSignature  = officerSigRef.current?.getDataURL() ?? null
-      const receiverSignature = receiverSigRef.current?.getDataURL() ?? null
+      const officerSignature = officerSigRef.current?.getDataURL() ?? null
 
       const res = await fetch('/api/v1/admin/transfusion-responses', {
         method: 'POST',
@@ -597,9 +694,8 @@ export function ResponseForm({ request, existingResponses }: Props) {
           officer_name:   officer.officer_name   || null,
           release_date:   officer.release_date   || null,
           release_time:   officer.release_time   || null,
-          receiver_name:  receiverName           || null,
-          receiver_signature: receiverSignature,
           officer_signature:  officerSignature,
+          estimated_pickup_time: officer.estimated_pickup_time || null,
           products: productSections.map(s => ({
             label:  s.label,
             status: s.status,
@@ -617,50 +713,73 @@ export function ResponseForm({ request, existingResponses }: Props) {
       const newRows: TransfusionResponse[] = json.responses ?? []
       setResponses(prev => [...newRows, ...prev])
       setSuccessCount(c => c + newRows.length)
-      setCurrentStatus(json.newStatus ?? (newRows.length > 0 ? 'approved' : 'rejected'))
-      setShowSignModal(false)
+      setCurrentStatus(json.newStatus ?? 'approved')
+      setShowOfficerModal(false)
+      setDiprosesSuccess(true) // Hide the response form
 
-      // Reset bags only — keep officer info for potential follow-up batches
-      setProductSections(buildProductSections(request, today))
-      setReceiverName('')
       officerSigRef.current?.clear()
-      receiverSigRef.current?.clear()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Terjadi kesalahan.')
-      setShowSignModal(false)
+      setShowOfficerModal(false)
     } finally {
       setSubmitting(false)
     }
   }
 
-  const handleMarkDone = async () => {
-    setMarkingDone(true)
+  // ── Handover confirm (SELESAI) ────────────────────────────────────────────
+  const handleHandoverConfirm = async () => {
+    setHandoverError(null)
+    setHandoverSubmitting(true)
     try {
-      const res = await fetch('/api/v1/admin/transfusion-responses', {
-        method: 'PATCH',
+      const receiverSignature = receiverSigRef.current?.getDataURL() ?? null
+
+      const res = await fetch(`/api/v1/admin/handover/${request.id}`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transfusion_request_id: request.id, status: 'completed' }),
+        body: JSON.stringify({
+          receiver_name:      receiverName      || null,
+          receiver_signature: receiverSignature || null,
+        }),
       })
-      if (res.ok) setCurrentStatus('completed')
+
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Gagal mengkonfirmasi serah terima.')
+
+      setCurrentStatus('completed')
+      setShowHandoverModal(false)
+      receiverSigRef.current?.clear()
+    } catch (err) {
+      setHandoverError(err instanceof Error ? err.message : 'Terjadi kesalahan.')
+      setShowHandoverModal(false)
     } finally {
-      setMarkingDone(false)
+      setHandoverSubmitting(false)
     }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
-      {showSignModal && (
-        <SignatureModal
+      {/* Officer Signature Modal (DIPROSES) */}
+      {showOfficerModal && (
+        <OfficerSignatureModal
           availableCount={availableCount}
           unavailableCount={unavailableCount}
           officerSigRef={officerSigRef}
+          onConfirm={handleSubmitDiproses}
+          onClose={() => setShowOfficerModal(false)}
+          submitting={submitting}
+        />
+      )}
+
+      {/* Handover / Receiver Signature Modal (SELESAI) */}
+      {showHandoverModal && (
+        <HandoverModal
           receiverSigRef={receiverSigRef}
           receiverName={receiverName}
           onReceiverNameChange={setReceiverName}
-          onConfirm={handleSubmit}
-          onClose={() => setShowSignModal(false)}
-          submitting={submitting}
+          onConfirm={handleHandoverConfirm}
+          onClose={() => setShowHandoverModal(false)}
+          submitting={handoverSubmitting}
         />
       )}
 
@@ -705,16 +824,38 @@ export function ResponseForm({ request, existingResponses }: Props) {
             <InfoRow label="Hb"             value={request.hemoglobin ? `${request.hemoglobin} g/%` : null} />
           </div>
 
-          {currentStatus !== 'completed' && currentStatus !== 'rejected' && responses.length > 0 && (
-            <div className="mt-5 pt-5 border-t border-gray-100 flex items-center justify-between flex-wrap gap-3">
-              <p className="text-sm text-gray-600">
-                <strong>{responses.length} kantong</strong> telah dicatat. Tandai sebagai selesai?
-              </p>
-              <button id="mark-done-btn" onClick={handleMarkDone} disabled={markingDone}
-                className="text-sm font-bold text-white px-5 py-2 rounded-lg hover:opacity-90 transition-opacity"
-                style={{ background: 'linear-gradient(135deg,#15803d,#166534)' }}>
-                {markingDone ? '...' : '✓ Tandai Selesai'}
-              </button>
+          {/* Estimated pickup time display */}
+          {request.estimated_pickup_time && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">⏰ Estimasi Waktu Pengambilan</p>
+              <p className="text-sm font-semibold text-blue-800">{fmtPickupTime(request.estimated_pickup_time)}</p>
+            </div>
+          )}
+
+          {/* Handover button — shown when status is DIPROSES and has responses */}
+          {isDiproses && responses.length > 0 && (
+            <div className="mt-5 pt-5 border-t border-gray-100">
+              {handoverError && (
+                <div className="alert alert-error mb-3 text-sm">⚠️ {handoverError}</div>
+              )}
+              <div className="flex items-center justify-between flex-wrap gap-3"
+                style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '0.75rem', padding: '0.875rem 1.25rem' }}>
+                <div>
+                  <p className="text-sm font-bold text-green-900">🩸 Darah siap diserahterimakan</p>
+                  <p className="text-xs text-green-700 mt-0.5">
+                    {responses.length} kantong tersedia. Minta pengambil darah untuk menandatangani serah terima.
+                  </p>
+                </div>
+                <button
+                  id="open-handover-modal-btn"
+                  type="button"
+                  onClick={() => setShowHandoverModal(true)}
+                  className="flex-shrink-0 py-2.5 px-5 rounded-xl font-bold text-sm text-white transition-all flex items-center gap-2"
+                  style={{ background: 'linear-gradient(135deg,#15803d,#166534)', boxShadow: '0 4px 14px rgba(21,128,61,.3)' }}
+                >
+                  🤝 Serahkan Darah &amp; Tandai Selesai
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -757,9 +898,25 @@ export function ResponseForm({ request, existingResponses }: Props) {
         )}
 
         {/* ════════════════════════════════════════════════════════════
-            CARD 3: Unified Response Form
+            CARD 3: DIPROSES Success State (shown after form submit)
         ═════════════════════════════════════════════════════════════ */}
-        {!isFinished && (
+        {diprosesSuccess && (
+          <div className="card p-6 text-center" style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
+            <p className="text-4xl mb-3">🩸</p>
+            <p className="font-display text-lg font-bold text-blue-800">Respons Berhasil Disimpan!</p>
+            <p className="text-blue-600 text-sm mt-1">
+              {successCount} kantong darah dicatat. Status permintaan sudah diperbarui ke <strong>DIPROSES</strong>.
+            </p>
+            <p className="text-xs text-blue-500 mt-2">
+              Gunakan tombol &quot;Serahkan Darah&quot; di atas saat darah siap diambil oleh petugas RS.
+            </p>
+          </div>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════
+            CARD 3: Unified Response Form (hidden after DIPROSES success)
+        ═════════════════════════════════════════════════════════════ */}
+        {!isFinished && !diprosesSuccess && (
           <div className="card p-6 space-y-6">
 
             {/* Panel header + status pills */}
@@ -785,7 +942,6 @@ export function ResponseForm({ request, existingResponses }: Props) {
             </div>
 
             {error && <div className="alert alert-error">⚠️ {error}</div>}
-            {successCount > 0 && <div className="alert alert-success">✅ {successCount} kantong darah berhasil dicatat.</div>}
 
             {/* ── Section A: Per-product list ── */}
             <div>
@@ -883,10 +1039,34 @@ export function ResponseForm({ request, existingResponses }: Props) {
 
             <hr className="border-gray-100" />
 
+            {/* ── Section D: Estimated Pickup Time ── */}
+            <div>
+              <p className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                <span className="w-6 h-6 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-black">D</span>
+                Estimasi Waktu Pengambilan Darah
+                <span className="text-[10px] font-normal text-gray-400">(akan ditampilkan ke RS)</span>
+              </p>
+              <div className="max-w-sm">
+                <Label>Kapan darah bisa diambil?</Label>
+                <input
+                  id="estimated-pickup-time-input"
+                  type="datetime-local"
+                  className="input-field"
+                  value={officer.estimated_pickup_time}
+                  onChange={e => updateOfficer('estimated_pickup_time', e.target.value)}
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Opsional. Informasikan RS kapan darah siap dijemput.
+                </p>
+              </div>
+            </div>
+
+            <hr className="border-gray-100" />
+
             {/* ── Proceed button ── */}
             <div
               className="rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap"
-              style={{ background: '#f0f9ff', border: '1.5px solid #bae6fd' }}
+              style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe' }}
             >
               <div>
                 <p className="text-sm font-bold text-blue-900">
@@ -897,7 +1077,7 @@ export function ResponseForm({ request, existingResponses }: Props) {
                       : `${availableCount} produk tersedia, ${unavailableCount} tidak tersedia`}
                 </p>
                 <p className="text-xs text-blue-600 mt-0.5">
-                  Klik untuk membuka panel tanda tangan Petugas PMI{availableCount > 0 ? ' dan Pengambil Darah' : ''}.
+                  Klik untuk membuka panel tanda tangan Petugas PMI (tanda tangan Pengambil Darah dilakukan saat serah terima).
                 </p>
               </div>
               <button
@@ -907,12 +1087,12 @@ export function ResponseForm({ request, existingResponses }: Props) {
                   const err = validate()
                   if (err) return setError(err)
                   setError(null)
-                  setShowSignModal(true)
+                  setShowOfficerModal(true)
                 }}
                 className="flex-shrink-0 py-3 px-6 rounded-xl font-bold text-sm text-white transition-all flex items-center gap-2"
-                style={{ background: 'linear-gradient(135deg,#dc2626,#b91c1c)', boxShadow: '0 4px 14px rgba(220,38,38,.3)' }}
+                style={{ background: 'linear-gradient(135deg,#1d4ed8,#1e40af)', boxShadow: '0 4px 14px rgba(29,78,216,.3)' }}
               >
-                ✍️ Selesai &amp; Lanjut Tanda Tangan
+                ✍️ Selesai &amp; Tanda Tangan Petugas PMI
               </button>
             </div>
 
@@ -924,7 +1104,7 @@ export function ResponseForm({ request, existingResponses }: Props) {
           <div className="card p-6 text-center" style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
             <p className="text-4xl mb-2">✅</p>
             <p className="font-display text-lg font-bold text-green-700">Permintaan Selesai</p>
-            <p className="text-green-600 text-sm mt-1">{responses.length} kantong darah telah diberikan.</p>
+            <p className="text-green-600 text-sm mt-1">{responses.length} kantong darah telah diserahterimakan.</p>
           </div>
         )}
         {currentStatus === 'rejected' && (
