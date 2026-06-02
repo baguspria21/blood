@@ -257,7 +257,7 @@ export default async function VolunteerDashboard({
             {/* Quick Info */}
             <div className="card p-5 text-center" style={{ background: '#fefce8', border: '1px solid #fde68a' }}>
               <p className="text-sm text-amber-800">
-                📲 Saat ada permintaan darah yang cocok, Anda akan mendapat notifikasi via <strong>WhatsApp</strong> secara otomatis.
+              Saat ada permintaan darah yang cocok, Anda akan mendapat notifikasi via <strong>WhatsApp</strong> secara otomatis.
               </p>
             </div>
 

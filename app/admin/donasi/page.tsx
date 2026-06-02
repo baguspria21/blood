@@ -19,10 +19,10 @@ interface Donation {
 type FilterStatus = 'all' | 'pending' | 'approved' | 'done' | 'rejected'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; icon: string }> = {
-  pending:  { label: 'Menunggu',    color: '#b45309', bg: '#fffbeb', border: '#fde68a', icon: '⏳' },
-  approved: { label: 'Dijadwalkan', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe', icon: '📅' },
-  done:     { label: 'Selesai',     color: '#15803d', bg: '#dcfce7', border: '#86efac', icon: '✅' },
-  rejected: { label: 'Ditolak',     color: '#b91c1c', bg: '#fef2f2', border: '#fca5a5', icon: '❌' },
+  pending:  { label: 'Menunggu',    color: '#b45309', bg: '#fffbeb', border: '#fde68a', icon: '' },
+  approved: { label: 'Dijadwalkan', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe', icon: '' },
+  done:     { label: 'Selesai',     color: '#15803d', bg: '#dcfce7', border: '#86efac', icon: '' },
+  rejected: { label: 'Ditolak',     color: '#b91c1c', bg: '#fef2f2', border: '#fca5a5', icon: '' },
 }
 
 // ── Rejection Note Modal ──────────────────────────────────────────────────────
