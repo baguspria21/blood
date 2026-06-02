@@ -141,7 +141,7 @@ export default async function VolunteerDashboard({
             {/* Greeting */}
             <div>
               <h1 className="font-display text-2xl font-bold text-gray-900">
-                Halo, {profile.name} 👋
+                Halo, {profile.name} 
               </h1>
               <p className="text-gray-500 text-sm mt-1">
                 Terima kasih telah menjadi pahlawan donor darah!
@@ -260,9 +260,6 @@ export default async function VolunteerDashboard({
                 📲 Saat ada permintaan darah yang cocok, Anda akan mendapat notifikasi via <strong>WhatsApp</strong> secara otomatis.
               </p>
             </div>
-
-            {/* Blood Stock Widget */}
-            <BloodStockWidget />
 
             {/* FAQ */}
             <FaqAccordion />
