@@ -41,10 +41,16 @@ export default async function RumahSakitDashboardPage() {
           <h1 className="font-display text-2xl font-bold text-gray-900">Dashboard Rumah Sakit</h1>
           <p className="text-gray-500 text-sm">Kelola permintaan transfusi darah Anda</p>
         </div>
-        <Link href="/permintaan-transfusi" id="rs-new-request-btn"
-          className="btn-primary" style={{ width: 'auto', padding: '0.75rem 1.5rem' }}>
-          + Ajukan Permintaan Baru
-        </Link>
+        <div className="flex items-center gap-2">
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-full">
+            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+            Live
+          </span>
+          <Link href="/permintaan-transfusi" id="status-new-request-btn"
+            className="btn-primary" style={{ width: 'auto', padding: '0.6rem 1.25rem', fontSize: '0.8rem' }}>
+            + Permintaan Baru
+          </Link>
+        </div>
       </div>
 
       {/* Stats */}
@@ -118,7 +124,7 @@ export default async function RumahSakitDashboardPage() {
           <div className="px-5 py-14 text-center text-gray-400">
             <p className="text-4xl mb-3">📋</p>
             <p className="font-semibold text-gray-600">Belum ada permintaan transfusi</p>
-            <p className="text-sm mt-1">Klik tombol "+ Ajukan Permintaan Baru" untuk memulai.</p>
+            <p className="text-sm mt-1">Klik tombol "+ Permintaan Baru" untuk memulai.</p>
           </div>
         )}
       </div>

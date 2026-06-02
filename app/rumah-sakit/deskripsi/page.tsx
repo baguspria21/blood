@@ -76,11 +76,11 @@ function parseItem(raw: string): UnavailableItem {
   return { label: raw, note: null }
 }
 
-const STATUS_CFG: Record<string, { label: string; color: string; bg: string; border: string; icon: string }> = {
-  pending:   { label: 'Menunggu Verifikasi', color: '#b45309', bg: '#fef3c7', border: '#fde68a', icon: '⏳' },
-  approved:  { label: 'Sedang Diproses',     color: '#1d4ed8', bg: '#dbeafe', border: '#bfdbfe', icon: '🔄' },
-  completed: { label: 'Selesai',             color: '#15803d', bg: '#dcfce7', border: '#86efac', icon: '✅' },
-  rejected:  { label: 'Ditolak',             color: '#b91c1c', bg: '#fee2e2', border: '#fca5a5', icon: '❌' },
+const STATUS_CFG: Record<string, { label: string; color: string; bg: string; border: string;  }> = {
+  pending:   { label: 'Menunggu Verifikasi', color: '#b45309', bg: '#fef3c7', border: '#fde68a' },
+  approved:  { label: 'Sedang Diproses',     color: '#1d4ed8', bg: '#dbeafe', border: '#bfdbfe' },
+  completed: { label: 'Selesai',             color: '#15803d', bg: '#dcfce7', border: '#86efac' },
+  rejected:  { label: 'Ditolak',             color: '#b91c1c', bg: '#fee2e2', border: '#fca5a5' },
 }
 
 function fmtDate(d: string | null) {
@@ -102,7 +102,7 @@ function BloodBagCard({ r }: { r: TransfusionResponse }) {
       style={{ borderColor: '#dc2626', background: 'linear-gradient(135deg, #fff5f5, #ffffff)' }}>
       <div className="px-4 py-2 flex items-center gap-2"
         style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)' }}>
-        <span className="text-white text-xs font-bold">🩸 Kantong #{r.bag_number}</span>
+        <span className="text-white text-xs font-bold"> Kantong #{r.bag_number}</span>
         {r.blood_type_abo && (
           <span className="ml-auto bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full">
             {r.blood_type_abo}{r.rhesus}
@@ -215,7 +215,7 @@ export default function RumahSakitDeskripsiPage() {
         </div>
         <span className="flex items-center gap-1.5 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-full">
           <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-          Live — Sinkron dengan Admin
+          Live
         </span>
       </div>
 
@@ -255,11 +255,11 @@ export default function RumahSakitDeskripsiPage() {
                       )}
                       <span className="text-xs font-bold px-2 py-0.5 rounded-full"
                         style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
-                        {cfg.icon} {cfg.label}
+                         {cfg.label}
                       </span>
                       {hasResponses && (
                         <span className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">
-                          🩸 {req.responses.length} kantong
+                           {req.responses.length} kantong
                         </span>
                       )}
                       {hasUnavailable && (
@@ -283,7 +283,6 @@ export default function RumahSakitDeskripsiPage() {
                     {/* Status-specific messages */}
                     {req.status === 'pending' && (
                       <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-center gap-3">
-                        <span className="text-2xl">⏳</span>
                         <div>
                           <p className="text-sm font-bold text-amber-800">Menunggu Verifikasi</p>
                           <p className="text-xs text-amber-700 mt-0.5">
@@ -307,7 +306,7 @@ export default function RumahSakitDeskripsiPage() {
 
                     {req.status === 'rejected' && (
                       <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                        <p className="text-sm font-bold text-red-800 mb-1">❌ Permintaan Ditolak / Darah Tidak Tersedia</p>
+                        <p className="text-sm font-bold text-red-800 mb-1">Permintaan Ditolak / Darah Tidak Tersedia</p>
                         {req.rejection_notes ? (
                           <p className="text-sm text-red-700">{req.rejection_notes}</p>
                         ) : (
@@ -322,7 +321,6 @@ export default function RumahSakitDeskripsiPage() {
                         className="rounded-xl p-4 flex items-start gap-3"
                         style={{ background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', border: '1.5px solid #93c5fd' }}
                       >
-                        <span className="text-2xl flex-shrink-0">⏰</span>
                         <div>
                           <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-0.5">Estimasi Waktu Pengambilan Darah</p>
                           <p className="text-sm font-bold text-blue-900">{fmtDatetime(req.estimated_pickup_time)}</p>
@@ -378,7 +376,6 @@ export default function RumahSakitDeskripsiPage() {
                     {hasResponses && (
                       <div>
                         <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                          <span className="w-4 h-4 rounded bg-red-100 text-red-600 flex items-center justify-center text-[10px]">🩸</span>
                           Kantong Darah Dikeluarkan ({req.responses.length} kantong)
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
