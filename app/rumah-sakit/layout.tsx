@@ -59,11 +59,6 @@ export default async function RumahSakitLayout({ children }: { children: React.R
               className="text-sm font-medium text-gray-600 px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors">
               Profil
             </Link>
-            <Link href="/permintaan-transfusi" id="rs-nav-form"
-              className="text-sm font-semibold text-white px-4 py-1.5 rounded-lg gradient-brand transition-opacity hover:opacity-90"
-              style={{ boxShadow: '0 2px 8px rgba(220,38,38,0.3)' }}>
-              + Permintaan Baru
-            </Link>
           </nav>
 
           <div className="flex items-center gap-3">

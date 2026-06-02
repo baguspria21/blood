@@ -162,10 +162,6 @@ export function HospitalStatusLive({ initialRequests, userId }: Props) {
             <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
             Live
           </span>
-          <Link href="/permintaan-transfusi" id="status-new-request-btn"
-            className="btn-primary" style={{ width: 'auto', padding: '0.6rem 1.25rem', fontSize: '0.8rem' }}>
-            + Permintaan Baru
-          </Link>
         </div>
       </div>
 
