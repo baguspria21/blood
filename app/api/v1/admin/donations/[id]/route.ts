@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabaseServer'
+import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabaseServer'
 
 /**
  * PATCH /api/v1/admin/donations/[id] — Update a volunteer donation status
@@ -67,8 +67,11 @@ export async function PATCH(
 
     // When marking as DONE → update inventory + volunteer's last_donated_at
     if (status === 'done') {
+      // Use service client so RLS does not block cross-user profile writes
+      const svc = createSupabaseServiceClient()
+
       // Increment blood inventory
-      const { data: inv } = await supabase
+      const { data: inv } = await svc
         .from('blood_inventory')
         .select('bags_count')
         .eq('blood_type', donation.blood_type)
@@ -77,17 +80,24 @@ export async function PATCH(
 
       const newCount = (inv?.bags_count ?? 0) + (donation.bags_donated ?? 1)
 
-      await supabase
+      await svc
         .from('blood_inventory')
         .update({ bags_count: newCount, updated_by: user.id })
         .eq('blood_type', donation.blood_type)
         .eq('rhesus', donation.rhesus)
 
-      // Update volunteer's last_donated_at
-      await supabase
+      // ✅ CRITICAL: set last_donated_at on the VOLUNTEER's profile.
+      //    Must use service client — anon client is the admin's session and
+      //    the RLS self-update policy blocks writing to another user's row.
+      const { error: profileErr } = await svc
         .from('profiles')
-        .update({ last_donated_at: new Date().toISOString() })
+        .update({ last_donated_at: new Date().toISOString().split('T')[0] }) // DATE only
         .eq('id', donation.volunteer_id)
+
+      if (profileErr) {
+        console.error('[admin/donations/done] failed to set last_donated_at:', profileErr)
+        // Non-fatal: status is already set to done, log and continue
+      }
     }
 
     return NextResponse.json({ success: true, status })

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabaseServer'
+import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabaseServer'
 
 /**
  * POST /api/v1/volunteer/donations/[id]/upload-proof
@@ -20,17 +20,18 @@ export async function POST(
 ) {
   try {
     const { id: donationId } = await params
-    const supabase = await createSupabaseServerClient()
 
+    // ── 1. Auth check (anon client — reads cookies) ──────────────
+    const supabase = await createSupabaseServerClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify the donation belongs to this volunteer and is in 'approved' status
+    // ── 2. Verify the donation belongs to this volunteer ──────────
     const { data: donation, error: fetchErr } = await supabase
       .from('volunteer_donations')
-      .select('id, volunteer_id, status, blood_type, rhesus')
+      .select('id, volunteer_id, status')
       .eq('id', donationId)
       .eq('volunteer_id', user.id)
       .single()
@@ -49,8 +50,18 @@ export async function POST(
       )
     }
 
-    // Parse the multipart form
-    const formData = await req.formData()
+    // ── 3. Parse multipart form ───────────────────────────────────
+    let formData: FormData
+    try {
+      formData = await req.formData()
+    } catch (e) {
+      console.error('[upload-proof] formData parse error:', e)
+      return NextResponse.json(
+        { error: 'Gagal membaca file. Pastikan form menggunakan enctype multipart/form-data.' },
+        { status: 400 }
+      )
+    }
+
     const file = formData.get('proof') as File | null
 
     if (!file || file.size === 0) {
@@ -60,7 +71,7 @@ export async function POST(
       )
     }
 
-    // Validate file type
+    // ── 4. Validate type & size ───────────────────────────────────
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
@@ -69,8 +80,7 @@ export async function POST(
       )
     }
 
-    // Validate file size (5 MB max)
-    const MAX_SIZE = 5 * 1024 * 1024
+    const MAX_SIZE = 5 * 1024 * 1024 // 5 MB
     if (file.size > MAX_SIZE) {
       return NextResponse.json(
         { error: 'Ukuran file terlalu besar. Maksimal 5 MB.' },
@@ -78,15 +88,17 @@ export async function POST(
       )
     }
 
-    // Build storage path: donation-proofs/{donationId}/{timestamp}.{ext}
-    const ext = file.name.split('.').pop() ?? 'jpg'
+    // ── 5. Upload to Storage (service role — bypasses RLS safely) ─
+    //    We already verified ownership above, so service role is fine here.
+    const serviceClient = createSupabaseServiceClient()
+
+    const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase()
     const filePath = `${donationId}/${Date.now()}.${ext}`
 
-    // Convert File to ArrayBuffer → Uint8Array for Supabase upload
     const arrayBuffer = await file.arrayBuffer()
     const fileBuffer = new Uint8Array(arrayBuffer)
 
-    const { error: uploadErr } = await supabase.storage
+    const { error: uploadErr } = await serviceClient.storage
       .from('donation-proofs')
       .upload(filePath, fileBuffer, {
         contentType: file.type,
@@ -95,20 +107,20 @@ export async function POST(
       })
 
     if (uploadErr) {
-      console.error('[upload-proof] storage upload error:', uploadErr)
+      console.error('[upload-proof] storage upload error:', JSON.stringify(uploadErr))
       return NextResponse.json(
-        { error: 'Gagal mengunggah file. Coba lagi.' },
+        { error: `Gagal mengunggah file: ${uploadErr.message}` },
         { status: 500 }
       )
     }
 
-    // Get the public URL
-    const { data: { publicUrl } } = supabase.storage
+    // ── 6. Get public URL ─────────────────────────────────────────
+    const { data: { publicUrl } } = serviceClient.storage
       .from('donation-proofs')
       .getPublicUrl(filePath)
 
-    // Save proof_url to the donation record
-    const { data: updated, error: updateErr } = await supabase
+    // ── 7. Save proof_url to DB (service role to avoid column-missing RLS issues) ──
+    const { data: updated, error: updateErr } = await serviceClient
       .from('volunteer_donations')
       .update({ proof_url: publicUrl })
       .eq('id', donationId)
@@ -116,7 +128,11 @@ export async function POST(
       .single()
 
     if (updateErr) {
-      return NextResponse.json({ error: updateErr.message }, { status: 500 })
+      console.error('[upload-proof] db update error:', JSON.stringify(updateErr))
+      return NextResponse.json(
+        { error: `Gagal menyimpan bukti: ${updateErr.message}` },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({

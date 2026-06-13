@@ -39,18 +39,41 @@ export async function POST(req: NextRequest) {
 
     if (!profile) return NextResponse.json({ error: 'Profil tidak ditemukan' }, { status: 404 })
 
-    // Check cooldown — 60 days since last donation (hard lockdown)
+    // ── Cooldown check 1: profile.last_donated_at ──────────────────
+    // Primary check — set by admin when marking a session 'done'.
     if (profile.last_donated_at) {
       const lastDonated = new Date(profile.last_donated_at)
       const daysSince = Math.floor((Date.now() - lastDonated.getTime()) / (1000 * 60 * 60 * 24))
       if (daysSince < 60) {
         return NextResponse.json({
-          error: `Anda masih dalam masa cooldown. ${60 - daysSince} hari lagi sebelum bisa donor.`,
+          error: `Anda masih dalam masa pemulihan medis. ${60 - daysSince} hari lagi sebelum bisa donor.`,
         }, { status: 400 })
       }
     }
 
-    // Check for existing pending donation
+    // ── Cooldown check 2: recent 'done' donation (belt-and-suspenders) ──
+    // Catches the edge case where last_donated_at wasn't propagated yet.
+    const cutoff = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: recentDone } = await supabase
+      .from('volunteer_donations')
+      .select('id, updated_at')
+      .eq('volunteer_id', user.id)
+      .eq('status', 'done')
+      .gte('updated_at', cutoff)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+
+    if (recentDone && recentDone.length > 0) {
+      const lastDoneAt = new Date(recentDone[0].updated_at)
+      const daysSince = Math.floor((Date.now() - lastDoneAt.getTime()) / (1000 * 60 * 60 * 24))
+      const remaining = Math.max(0, 60 - daysSince)
+      return NextResponse.json({
+        error: `Anda masih dalam masa pemulihan medis. ${remaining} hari lagi sebelum bisa donor.`,
+      }, { status: 400 })
+    }
+
+    // ── Active session check ───────────────────────────────────────
+    // Prevent duplicate submission while a session is pending/approved.
     const { data: existing } = await supabase
       .from('volunteer_donations')
       .select('id')

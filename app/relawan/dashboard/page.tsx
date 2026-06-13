@@ -53,6 +53,16 @@ export default async function VolunteerDashboard({
     : null
   const canDonate = daysSinceDonation === null || daysSinceDonation >= 60
   const cooldownRemaining = daysSinceDonation !== null ? Math.max(0, 60 - daysSinceDonation) : 0
+  const progressPct = daysSinceDonation !== null ? Math.min(100, Math.round((daysSinceDonation / 60) * 100)) : 100
+
+  // Formatted dates for UI
+  const lastDonatedFormatted = lastDonated
+    ? lastDonated.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+    : null
+  const recoveryDate = lastDonated
+    ? new Date(lastDonated.getTime() + 60 * 24 * 60 * 60 * 1000)
+        .toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+    : null
 
   const { tab } = await searchParams
   const activeTab = tab === 'profil' ? 'profil' : 'dashboard'
@@ -149,57 +159,140 @@ export default async function VolunteerDashboard({
               </p>
             </div>
 
-            {/* Donation Status Card */}
-            <div
-              className="card p-6"
-              style={{ borderLeft: `4px solid ${canDonate ? '#16a34a' : '#d97706'}` }}
-            >
-              <div className="flex items-center gap-4">
+            {/* ── Donation Status / Cooldown Card ── */}
+            {!canDonate ? (
+              /* LOCKOUT STATE — prominent medical recovery alert */
+              <div
+                className="rounded-2xl overflow-hidden"
+                style={{
+                  background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+                  border: '2px solid #f59e0b',
+                  boxShadow: '0 4px 24px -4px rgba(245,158,11,0.25)',
+                }}
+              >
+                {/* Alert header strip */}
                 <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
-                  style={{
-                    background: canDonate
-                      ? 'linear-gradient(135deg, #16a34a, #15803d)'
-                      : 'linear-gradient(135deg, #d97706, #b45309)',
-                    boxShadow: canDonate
-                      ? '0 4px 12px rgba(22,163,74,0.3)'
-                      : '0 4px 12px rgba(217,119,6,0.3)',
-                  }}
+                  className="px-5 py-3 flex items-center gap-3"
+                  style={{ background: 'linear-gradient(90deg, #d97706, #b45309)', color: 'white' }}
                 >
-                  <span className="text-white text-2xl">
-                    {canDonate ? '✓' : '⏳'}
-                  </span>
+                  <span className="text-xl">🏥</span>
+                  <div className="flex-1">
+                    <p className="text-xs font-bold uppercase tracking-widest opacity-80">Status Medis</p>
+                    <p className="font-display font-bold text-sm">Masa Pemulihan Medis Aktif</p>
+                  </div>
+                  <div
+                    className="px-3 py-1 rounded-full text-xs font-bold"
+                    style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)' }}
+                  >
+                    🔒 Terkunci
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <h2 className="font-display font-bold text-gray-900">
-                    {canDonate ? 'Siap Donor!' : 'Masa Cooldown'}
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    {canDonate
-                      ? daysSinceDonation === null
-                        ? 'Anda belum pernah donor — mari mulai menyelamatkan nyawa!'
-                        : `Terakhir donor ${daysSinceDonation} hari lalu. Anda sudah bisa donor lagi.`
-                      : `${cooldownRemaining} hari lagi sebelum Anda bisa donor kembali.`}
-                  </p>
-                  {!canDonate && (
-                    <div className="mt-2">
-                      <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                        <div
-                          className="h-2 rounded-full transition-all"
-                          style={{
-                            width: `${Math.round(((60 - cooldownRemaining) / 60) * 100)}%`,
-                            background: 'linear-gradient(90deg, #d97706, #f59e0b)',
-                          }}
-                        />
-                      </div>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {60 - cooldownRemaining}/60 hari terlewati
+
+                {/* Countdown body */}
+                <div className="p-5 space-y-4">
+                  {/* Big day number */}
+                  <div className="flex items-end gap-4">
+                    <div className="flex-shrink-0 text-center">
+                      <p
+                        className="font-display font-black leading-none"
+                        style={{ fontSize: '4rem', color: '#b45309', lineHeight: 1 }}
+                      >
+                        {cooldownRemaining}
                       </p>
+                      <p className="text-xs font-bold text-amber-700 uppercase tracking-widest mt-1">Hari Lagi</p>
                     </div>
-                  )}
+                    <div className="flex-1 pb-1">
+                      <p className="font-display font-bold text-amber-900 text-base leading-tight">
+                        Anda baru dapat mendonor kembali dalam {cooldownRemaining} hari lagi
+                      </p>
+                      <p className="text-xs text-amber-700 mt-1">
+                        Donor terakhir: <strong>{lastDonatedFormatted}</strong>
+                      </p>
+                      {recoveryDate && (
+                        <p className="text-xs text-amber-700">
+                          Siap donor mulai: <strong>{recoveryDate}</strong>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Segmented progress bar */}
+                  <div>
+                    <div className="flex justify-between text-[10px] font-bold text-amber-700 mb-1.5 uppercase tracking-wide">
+                      <span>Pemulihan {progressPct}%</span>
+                      <span>{daysSinceDonation}/{60} hari</span>
+                    </div>
+                    <div
+                      className="w-full rounded-full overflow-hidden"
+                      style={{ height: 12, background: '#fde68a' }}
+                    >
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{
+                          width: `${progressPct}%`,
+                          background: progressPct >= 80
+                            ? 'linear-gradient(90deg, #16a34a, #15803d)'
+                            : progressPct >= 50
+                            ? 'linear-gradient(90deg, #d97706, #f59e0b)'
+                            : 'linear-gradient(90deg, #dc2626, #b91c1c)',
+                          boxShadow: '0 0 8px rgba(217,119,6,0.4)',
+                        }}
+                      />
+                    </div>
+                    {/* Tick marks */}
+                    <div className="flex justify-between mt-1">
+                      {[0, 15, 30, 45, 60].map(d => (
+                        <div key={d} className="flex flex-col items-center">
+                          <div
+                            className="w-px h-2"
+                            style={{ background: '#f59e0b' }}
+                          />
+                          <span className="text-[9px] text-amber-600 font-medium">{d}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Info callout */}
+                  <div
+                    className="flex items-start gap-2.5 rounded-xl px-3 py-2.5"
+                    style={{ background: 'rgba(217,119,6,0.1)', border: '1px solid rgba(217,119,6,0.25)' }}
+                  >
+                    <span className="text-base mt-0.5">ℹ️</span>
+                    <p className="text-xs text-amber-800 leading-relaxed">
+                      Masa pemulihan medis <strong>60 hari</strong> diperlukan agar tubuh Anda dapat memproduksi kembali sel darah merah yang optimal.
+                      Semua tombol donor dinonaktifkan selama periode ini untuk menjaga keselamatan Anda.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              /* ELIGIBLE STATE — green ready card */
+              <div
+                className="card p-6"
+                style={{ borderLeft: '4px solid #16a34a' }}
+              >
+                <div className="flex items-center gap-4">
+                  <div
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
+                    style={{
+                      background: 'linear-gradient(135deg, #16a34a, #15803d)',
+                      boxShadow: '0 4px 12px rgba(22,163,74,0.3)',
+                    }}
+                  >
+                    <span className="text-white text-2xl">✓</span>
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="font-display font-bold text-gray-900">Siap Donor!</h2>
+                    <p className="text-sm text-gray-500">
+                      {daysSinceDonation === null
+                        ? 'Anda belum pernah donor — mari mulai menyelamatkan nyawa!'
+                        : `Terakhir donor ${daysSinceDonation} hari lalu. Anda sudah bisa donor lagi.`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Volunteer-Initiated Donation */}
             <DonateButton canDonate={canDonate} cooldownRemaining={cooldownRemaining} />
