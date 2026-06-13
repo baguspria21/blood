@@ -12,6 +12,7 @@ interface Donation {
   bags_donated: number
   admin_notes: string | null
   description: string | null
+  proof_url: string | null
   created_at: string
   profiles: { name: string; phone_number: string; sub_district: string | null } | null
 }
@@ -191,14 +192,55 @@ function DonationCard({
               </>
             )}
             {d.status === 'approved' && (
-              <button onClick={onDone} disabled={isProcessing}
-                className="text-xs font-bold px-3 py-1.5 rounded-lg text-white disabled:opacity-50 transition-colors"
-                style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)' }}>
-                🩸 Selesai
+              <button
+                onClick={onDone}
+                disabled={isProcessing || !d.proof_url}
+                title={!d.proof_url ? 'Relawan belum upload bukti donor' : 'Tandai sebagai selesai'}
+                className="text-xs font-bold px-3 py-1.5 rounded-lg text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                style={d.proof_url
+                  ? { background: 'linear-gradient(135deg, #16a34a, #15803d)' }
+                  : { background: '#9ca3af' }}
+              >
+                {d.proof_url ? '🩸 Selesai' : '🔒 Tunggu Bukti'}
               </button>
             )}
           </div>
         </div>
+
+        {/* ── Proof Section ── */}
+        {(d.status === 'approved' || d.status === 'done') && (
+          <div className="mt-3 rounded-xl overflow-hidden"
+            style={d.proof_url
+              ? { border: '1px solid #86efac', background: '#f0fdf4' }
+              : { border: '1px solid #fde68a', background: '#fffbeb' }}
+          >
+            {d.proof_url ? (
+              <div className="flex items-center gap-3 px-3 py-2.5">
+                <span className="text-green-600 text-lg">📄</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold text-green-700 uppercase tracking-wide">Bukti Donor Tersedia</p>
+                  <p className="text-xs text-green-600 truncate">Foto sertifikat diunggah oleh relawan</p>
+                </div>
+                <a
+                  href={d.proof_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-shrink-0 text-xs font-bold text-green-700 underline"
+                >
+                  Lihat →
+                </a>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 px-3 py-2.5">
+                <span className="text-amber-500 text-lg">⏳</span>
+                <div>
+                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wide">Menunggu Bukti Donor</p>
+                  <p className="text-xs text-amber-600">Relawan belum mengunggah foto sertifikat PMI/RS</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Expandable volunteer detail */}
         <button onClick={() => setExpanded(v => !v)}

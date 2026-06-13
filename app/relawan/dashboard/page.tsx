@@ -5,6 +5,7 @@ import { DonateButton } from './_components/DonateButton'
 import { BloodStockWidget } from './_components/BloodStockWidget'
 import { FaqAccordion } from './_components/FaqAccordion'
 import { VolunteerProfileTab } from './_components/VolunteerProfileTab'
+import { PmiPaluMapSection } from './_components/PmiPaluMapSection'
 
 export const metadata = {
   title: 'Dashboard Relawan — Blood-Connect Palu',
@@ -50,8 +51,8 @@ export default async function VolunteerDashboard({
   const daysSinceDonation = lastDonated
     ? Math.floor((today.getTime() - lastDonated.getTime()) / (1000 * 60 * 60 * 24))
     : null
-  const canDonate = daysSinceDonation === null || daysSinceDonation >= 90
-  const cooldownRemaining = daysSinceDonation !== null ? Math.max(0, 90 - daysSinceDonation) : 0
+  const canDonate = daysSinceDonation === null || daysSinceDonation >= 60
+  const cooldownRemaining = daysSinceDonation !== null ? Math.max(0, 60 - daysSinceDonation) : 0
 
   const { tab } = await searchParams
   const activeTab = tab === 'profil' ? 'profil' : 'dashboard'
@@ -186,13 +187,13 @@ export default async function VolunteerDashboard({
                         <div
                           className="h-2 rounded-full transition-all"
                           style={{
-                            width: `${Math.round(((90 - cooldownRemaining) / 90) * 100)}%`,
+                            width: `${Math.round(((60 - cooldownRemaining) / 60) * 100)}%`,
                             background: 'linear-gradient(90deg, #d97706, #f59e0b)',
                           }}
                         />
                       </div>
                       <p className="text-xs text-gray-400 mt-1">
-                        {90 - cooldownRemaining}/90 hari terlewati
+                        {60 - cooldownRemaining}/60 hari terlewati
                       </p>
                     </div>
                   )}
@@ -260,6 +261,9 @@ export default async function VolunteerDashboard({
               Saat ada permintaan darah yang cocok, Anda akan mendapat notifikasi via <strong>WhatsApp</strong> secara otomatis.
               </p>
             </div>
+
+            {/* PMI Palu Map */}
+            <PmiPaluMapSection theme="light" />
 
             {/* FAQ */}
             <FaqAccordion />

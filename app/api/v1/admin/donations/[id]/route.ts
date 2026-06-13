@@ -46,6 +46,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Donasi tidak ditemukan' }, { status: 404 })
     }
 
+    // Guard: admin cannot mark as 'done' unless volunteer has uploaded proof
+    if (status === 'done' && !donation.proof_url) {
+      return NextResponse.json(
+        { error: 'Relawan belum mengunggah bukti donor (foto sertifikat PMI/RS). Minta relawan untuk upload terlebih dahulu.' },
+        { status: 400 }
+      )
+    }
+
     // Update donation status
     const updateData: Record<string, unknown> = { status }
     if (admin_notes) updateData.admin_notes = admin_notes

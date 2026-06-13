@@ -13,7 +13,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('volunteer_donations')
-      .select('*')
+      .select('id, status, bags_donated, admin_notes, description, proof_url, created_at, blood_type, rhesus')
       .eq('volunteer_id', user.id)
       .order('created_at', { ascending: false })
 
@@ -39,13 +39,13 @@ export async function POST(req: NextRequest) {
 
     if (!profile) return NextResponse.json({ error: 'Profil tidak ditemukan' }, { status: 404 })
 
-    // Check cooldown — 90 days since last donation
+    // Check cooldown — 60 days since last donation (hard lockdown)
     if (profile.last_donated_at) {
       const lastDonated = new Date(profile.last_donated_at)
       const daysSince = Math.floor((Date.now() - lastDonated.getTime()) / (1000 * 60 * 60 * 24))
-      if (daysSince < 90) {
+      if (daysSince < 60) {
         return NextResponse.json({
-          error: `Anda masih dalam masa cooldown. ${90 - daysSince} hari lagi sebelum bisa donor.`,
+          error: `Anda masih dalam masa cooldown. ${60 - daysSince} hari lagi sebelum bisa donor.`,
         }, { status: 400 })
       }
     }

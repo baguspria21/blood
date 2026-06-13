@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { PmiPaluMapSection } from './relawan/dashboard/_components/PmiPaluMapSection'
 
 function BloodDropIcon({ size = 24, className = '' }: { size?: number; className?: string }) {
   return (
@@ -23,6 +24,50 @@ function HeartIcon({ size = 24, className = '' }: { size?: number; className?: s
     </svg>
   )
 }
+
+// ── Educational Section Data ──────────────────────────────────────────────────
+const WHY_DONATE_CARDS = [
+  {
+    emoji: '🏥',
+    title: 'Menyelamatkan Nyawa',
+    subtitle: 'Untuk Warga Palu',
+    body:
+      'Setiap 2 detik, seseorang di Indonesia membutuhkan transfusi darah. Satu kantong darah Anda bisa menyelamatkan hingga 3 nyawa warga Kota Palu — pasien bedah, ibu melahirkan, hingga korban kecelakaan.',
+    accent: '#dc2626',
+    bg: 'rgba(220,38,38,0.08)',
+    border: 'rgba(220,38,38,0.2)',
+  },
+  {
+    emoji: '🔴',
+    title: 'Regenerasi Sel Darah',
+    subtitle: 'Manfaat Kesehatan',
+    body:
+      'Setelah donor, tubuh memproduksi sel darah merah baru dalam 4–8 minggu. Proses ini menyegarkan sistem darah Anda dan meningkatkan kualitas sirkulasi tubuh secara keseluruhan.',
+    accent: '#7c3aed',
+    bg: 'rgba(124,58,237,0.08)',
+    border: 'rgba(124,58,237,0.2)',
+  },
+  {
+    emoji: '❤️',
+    title: 'Menjaga Kesehatan Jantung',
+    subtitle: 'Risiko Lebih Rendah',
+    body:
+      'Studi menunjukkan donor darah rutin dapat menurunkan risiko serangan jantung hingga 33%. Donor membantu mengurangi kekentalan darah yang menjadi faktor risiko utama penyakit kardiovaskular.',
+    accent: '#0284c7',
+    bg: 'rgba(2,132,199,0.08)',
+    border: 'rgba(2,132,199,0.2)',
+  },
+  {
+    emoji: '🤝',
+    title: 'Solidaritas Komunitas',
+    subtitle: 'Bersama Lebih Kuat',
+    body:
+      'Donor darah mempererat ikatan sosial. Di Kota Palu pasca-bencana 2018, semangat gotong royong ini terbukti menyelamatkan ratusan korban. Jadilah bagian dari gerakan kemanusiaan ini.',
+    accent: '#16a34a',
+    bg: 'rgba(22,163,74,0.08)',
+    border: 'rgba(22,163,74,0.2)',
+  },
+]
 
 export default function HomePage() {
   return (
@@ -155,6 +200,100 @@ export default function HomePage() {
               <p className="text-xs text-gray-500 mt-1 font-medium uppercase tracking-wide">{s.label}</p>
             </div>
           ))}
+        </div>
+
+        {/* ── PMI Palu Map Section ── */}
+        <div className="w-full max-w-2xl mt-16">
+          <div className="mb-5 text-center">
+            <span className="inline-flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-widest">
+              📍 Lokasi Pusat Donor
+            </span>
+            <h2 className="font-display text-2xl font-bold text-white mt-3">
+              Temukan PMI Kota Palu
+            </h2>
+            <p className="text-gray-400 text-sm mt-2">
+              Unit Transfusi Darah PMI — tempat Anda bisa mendonorkan darah langsung.
+            </p>
+          </div>
+          <PmiPaluMapSection theme="dark" />
+        </div>
+
+        {/* ── Educational Section: Mengapa Donor Darah Itu Penting? ── */}
+        <div className="w-full max-w-2xl mt-20">
+          <div className="mb-8 text-center">
+            <span className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-gray-400 text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-widest">
+              💡 Edukasi Donor
+            </span>
+            <h2 className="font-display text-2xl font-bold text-white mt-3">
+              Mengapa Donor Darah Itu Penting?
+            </h2>
+            <p className="text-gray-400 text-sm mt-2 max-w-md mx-auto">
+              Satu keputusan Anda hari ini bisa mengubah kehidupan seseorang di Kota Palu esok hari.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {WHY_DONATE_CARDS.map((card, i) => (
+              <div
+                key={i}
+                className="group relative rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1"
+                style={{
+                  background: card.bg,
+                  border: `1px solid ${card.border}`,
+                  backdropFilter: 'blur(10px)',
+                }}
+              >
+                {/* Subtle glow on hover */}
+                <div
+                  className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                  style={{ background: `radial-gradient(circle at 30% 30%, ${card.bg}, transparent 70%)` }}
+                />
+
+                <div className="relative">
+                  {/* Icon */}
+                  <div
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mb-4"
+                    style={{
+                      background: `${card.accent}22`,
+                      border: `1px solid ${card.accent}44`,
+                    }}
+                  >
+                    {card.emoji}
+                  </div>
+
+                  {/* Label */}
+                  <p
+                    className="text-[10px] font-bold uppercase tracking-widest mb-1"
+                    style={{ color: card.accent }}
+                  >
+                    {card.subtitle}
+                  </p>
+
+                  {/* Title */}
+                  <h3 className="font-display text-base font-bold text-white mb-2">
+                    {card.title}
+                  </h3>
+
+                  {/* Body */}
+                  <p className="text-gray-400 text-sm leading-relaxed">
+                    {card.body}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA below educational section */}
+          <div className="mt-8 text-center">
+            <Link
+              href="/daftar"
+              id="edu-cta-register-btn"
+              className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl text-white transition-all hover:opacity-90 hover:-translate-y-0.5"
+              style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)', boxShadow: '0 4px 16px rgba(220,38,38,0.4)' }}
+            >
+              🩸 Mulai Jadi Relawan Donor Sekarang
+            </Link>
+          </div>
         </div>
       </main>
 

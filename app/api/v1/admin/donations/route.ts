@@ -21,7 +21,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('volunteer_donations')
-      .select('*, profiles:volunteer_id(name, phone_number, sub_district)')
+      .select('*, profiles:volunteer_id(name, phone_number, sub_district, last_donated_at)')
       .order('created_at', { ascending: false })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

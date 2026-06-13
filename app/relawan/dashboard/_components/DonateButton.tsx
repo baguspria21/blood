@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { getSupabase } from '@/lib/supabaseClient'
 
 interface DonationRecord {
@@ -9,28 +9,185 @@ interface DonationRecord {
   bags_donated: number
   admin_notes: string | null
   description: string | null
+  proof_url: string | null
   created_at: string
 }
 
-const STATUS_CFG: Record<string, { label: string; color: string; bg: string; border: string; emoji: string; description: string }> = {
-  pending:  {
+const STATUS_CFG: Record<string, {
+  label: string; color: string; bg: string; border: string; emoji: string; description: string
+}> = {
+  pending: {
     label: 'Menunggu Persetujuan', color: '#b45309', bg: '#fffbeb', border: '#fde68a', emoji: '⏳',
     description: 'Admin akan memproses permintaan Anda segera.',
   },
   approved: {
-    label: 'Dijadwalkan',          color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe', emoji: '📅',
-    description: 'Permintaan disetujui. Hubungi PMI untuk jadwal donor.',
+    label: 'Dijadwalkan', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe', emoji: '📅',
+    description: 'Permintaan disetujui. Silakan datang ke PMI Palu dan unggah bukti donor setelah selesai.',
   },
-  done:     {
-    label: 'Selesai',              color: '#15803d', bg: '#dcfce7', border: '#86efac', emoji: '✅',
-    description: 'Donasi berhasil! Terima kasih atas kontribusi Anda.',
+  done: {
+    label: 'Selesai', color: '#15803d', bg: '#dcfce7', border: '#86efac', emoji: '✅',
+    description: 'Donasi berhasil! Terima kasih atas kontribusi Anda. Cooldown 60 hari dimulai.',
   },
   rejected: {
-    label: 'Ditolak',              color: '#b91c1c', bg: '#fef2f2', border: '#fca5a5', emoji: '❌',
+    label: 'Ditolak', color: '#b91c1c', bg: '#fef2f2', border: '#fca5a5', emoji: '❌',
     description: 'Permintaan tidak dapat diproses saat ini.',
   },
 }
 
+// ── Proof Upload Inline Panel ──────────────────────────────────────────────────
+function ProofUploadPanel({
+  donationId,
+  existingProofUrl,
+  onUploaded,
+}: {
+  donationId: string
+  existingProofUrl: string | null
+  onUploaded: (url: string) => void
+}) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [preview, setPreview] = useState<string | null>(existingProofUrl)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setError(null)
+    // Local preview
+    const reader = new FileReader()
+    reader.onload = () => setPreview(reader.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  const handleUpload = async () => {
+    const file = fileRef.current?.files?.[0]
+    if (!file) { setError('Pilih file terlebih dahulu.'); return }
+
+    setUploading(true)
+    setError(null)
+    try {
+      const fd = new FormData()
+      fd.append('proof', file)
+      const res = await fetch(`/api/v1/volunteer/donations/${donationId}/upload-proof`, {
+        method: 'POST',
+        body: fd,
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setError(json.error ?? 'Gagal mengunggah.')
+      } else {
+        setSuccess(true)
+        onUploaded(json.donation?.proof_url ?? '')
+      }
+    } catch {
+      setError('Terjadi kesalahan. Coba lagi.')
+    }
+    setUploading(false)
+  }
+
+  if (success || (existingProofUrl && !fileRef.current?.files?.length)) {
+    return (
+      <div
+        className="mt-4 rounded-xl px-4 py-3 flex items-center gap-3"
+        style={{ background: '#f0fdf4', border: '1px solid #86efac' }}
+      >
+        <span className="text-xl">✅</span>
+        <div>
+          <p className="text-sm font-bold text-green-800">Bukti Donor Sudah Diunggah</p>
+          <p className="text-xs text-green-600">Admin akan memverifikasi dan menyelesaikan sesi Anda.</p>
+        </div>
+        {(preview || existingProofUrl) && (
+          <a
+            href={preview ?? existingProofUrl ?? '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto text-xs font-semibold text-green-700 underline"
+          >
+            Lihat →
+          </a>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="mt-4 rounded-xl p-4 space-y-3"
+      style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-lg">📷</span>
+        <div>
+          <p className="text-sm font-bold text-blue-800">Upload Bukti Donor</p>
+          <p className="text-xs text-blue-600">
+            Foto sertifikat/slip resmi dari PMI Palu atau RS. (JPG/PNG/PDF, maks 5 MB)
+          </p>
+        </div>
+      </div>
+
+      {/* Preview */}
+      {preview && (
+        <div className="relative rounded-xl overflow-hidden" style={{ height: 120 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={preview}
+            alt="Preview bukti donor"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+        </div>
+      )}
+
+      {/* File input */}
+      <div className="flex gap-2">
+        <label
+          htmlFor={`proof-file-${donationId}`}
+          className="flex-1 flex items-center justify-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl cursor-pointer transition-all"
+          style={{ background: 'white', border: '1.5px dashed #93c5fd', color: '#1d4ed8' }}
+        >
+          📁 {preview ? 'Ganti File' : 'Pilih File'}
+          <input
+            id={`proof-file-${donationId}`}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            className="sr-only"
+            ref={fileRef}
+            onChange={handleFileChange}
+          />
+        </label>
+
+        {preview && (
+          <button
+            id={`submit-proof-btn-${donationId}`}
+            type="button"
+            onClick={handleUpload}
+            disabled={uploading}
+            className="flex-1 text-sm font-bold px-4 py-2.5 rounded-xl text-white disabled:opacity-50 transition-all"
+            style={{ background: 'linear-gradient(135deg, #1d4ed8, #1e40af)', boxShadow: '0 3px 10px rgba(29,78,216,0.3)' }}
+          >
+            {uploading ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="spinner" style={{ borderColor: 'rgba(255,255,255,0.4)', borderTopColor: 'white' }} />
+                Mengunggah...
+              </span>
+            ) : (
+              '⬆ Kirim Bukti'
+            )}
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <p className="text-xs font-semibold text-red-700 bg-red-50 border border-red-100 px-3 py-2 rounded-lg">
+          ⚠️ {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ── Main Component ─────────────────────────────────────────────────────────────
 export function DonateButton({
   canDonate,
   cooldownRemaining,
@@ -45,7 +202,15 @@ export function DonateButton({
   const [description, setDescription] = useState('')
   const [showForm, setShowForm] = useState(false)
 
-  // Subscribe to realtime updates on volunteer_donations
+  const loadDonations = async () => {
+    try {
+      const res = await fetch('/api/v1/volunteer/donations')
+      const json = await res.json()
+      setDonations(json.donations ?? [])
+    } catch { /* ignore */ }
+    setLoadingDonations(false)
+  }
+
   useEffect(() => {
     let mounted = true
     async function load() {
@@ -92,10 +257,7 @@ export function DonateButton({
         setResult({ ok: true, msg: 'Permintaan donor berhasil dikirim! Admin akan segera menghubungi Anda.' })
         setDescription('')
         setShowForm(false)
-        // Refresh donation list
-        const res2 = await fetch('/api/v1/volunteer/donations')
-        const json2 = await res2.json()
-        setDonations(json2.donations ?? [])
+        await loadDonations()
       }
     } catch {
       setResult({ ok: false, msg: 'Terjadi kesalahan. Coba lagi.' })
@@ -125,7 +287,7 @@ export function DonateButton({
             <h2 className="font-display font-bold text-gray-900">Ingin Donor Hari Ini?</h2>
             <p className="text-sm text-gray-500">
               {!canDonate
-                ? `Anda masih dalam masa cooldown. ${cooldownRemaining} hari lagi.`
+                ? `Anda masih dalam masa cooldown 60 hari. ${cooldownRemaining} hari lagi.`
                 : hasActive
                 ? 'Anda sudah punya permintaan donor aktif.'
                 : 'Beritahu admin bahwa Anda siap donor hari ini.'}
@@ -152,7 +314,7 @@ export function DonateButton({
           )}
         </div>
 
-        {/* ── Donation Form (description) ── */}
+        {/* ── Donation Form ── */}
         {showForm && canSubmit && (
           <div className="mt-5 border-t border-gray-100 pt-5 space-y-4">
             <div>
@@ -266,6 +428,21 @@ export function DonateButton({
                         ⚠️ Permintaan donor ditolak. Hubungi admin untuk informasi lebih lanjut.
                       </p>
                     </div>
+                  )}
+
+                  {/* ── Proof Upload Panel (for approved sessions) ── */}
+                  {d.status === 'approved' && (
+                    <ProofUploadPanel
+                      donationId={d.id}
+                      existingProofUrl={d.proof_url}
+                      onUploaded={(url) => {
+                        setDonations(prev =>
+                          prev.map(item =>
+                            item.id === d.id ? { ...item, proof_url: url } : item
+                          )
+                        )
+                      }}
+                    />
                   )}
                 </div>
               )
