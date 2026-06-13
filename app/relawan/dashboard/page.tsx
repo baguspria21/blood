@@ -269,28 +269,7 @@ export default async function VolunteerDashboard({
             ) : (
               /* ELIGIBLE STATE — green ready card */
               <div
-                className="card p-6"
-                style={{ borderLeft: '4px solid #16a34a' }}
               >
-                <div className="flex items-center gap-4">
-                  <div
-                    className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
-                    style={{
-                      background: 'linear-gradient(135deg, #16a34a, #15803d)',
-                      boxShadow: '0 4px 12px rgba(22,163,74,0.3)',
-                    }}
-                  >
-                    <span className="text-white text-2xl">✓</span>
-                  </div>
-                  <div className="flex-1">
-                    <h2 className="font-display font-bold text-gray-900">Siap Donor!</h2>
-                    <p className="text-sm text-gray-500">
-                      {daysSinceDonation === null
-                        ? 'Anda belum pernah donor — mari mulai menyelamatkan nyawa!'
-                        : `Terakhir donor ${daysSinceDonation} hari lalu. Anda sudah bisa donor lagi.`}
-                    </p>
-                  </div>
-                </div>
               </div>
             )}
 
@@ -346,13 +325,6 @@ export default async function VolunteerDashboard({
                   </div>
                 ))}
               </div>
-            </div>
-
-            {/* Quick Info */}
-            <div className="card p-5 text-center" style={{ background: '#fefce8', border: '1px solid #fde68a' }}>
-              <p className="text-sm text-amber-800">
-              Saat ada permintaan darah yang cocok, Anda akan mendapat notifikasi via <strong>WhatsApp</strong> secara otomatis.
-              </p>
             </div>
 
             {/* PMI Palu Map */}

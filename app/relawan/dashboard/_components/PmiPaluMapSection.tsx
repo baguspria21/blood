@@ -10,7 +10,7 @@ const PMI_ADDRESS = 'Jl. Juanda No.63, Palu Timur, Kota Palu'
 const PMI_PHONE = '(0451) 421580'
 
 // Google Maps direction link
-const GMAPS_URL = `https://www.google.com/maps/dir/?api=1&destination=${PMI_LAT},${PMI_LNG}&travelmode=driving`
+const GMAPS_URL = `https://www.google.com/maps/dir/?api=1&destination=-0.9018247492264665,119.87817044499292&travelmode=driving`
 
 interface PmiPaluMapSectionProps {
   /** Visual theme: 'dark' for landing page, 'light' for volunteer dashboard */
