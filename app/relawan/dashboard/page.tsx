@@ -90,7 +90,7 @@ export default async function VolunteerDashboard({
                 Blood<span className="text-gradient">Connect</span>
               </span>
               <span className="block text-[10px] text-gray-400 font-medium -mt-0.5 tracking-wide">
-                DASBOR RELAWAN
+                DASHBOARD RELAWAN
               </span>
             </div>
           </Link>
