@@ -7,75 +7,38 @@ interface FaqItem {
   steps: string[]
 }
 
-const APPLICANT_FAQ: FaqItem[] = [
-  {
-    q: 'Bagaimana cara mengajukan permintaan darah darurat?',
-    steps: [
-      'Buka halaman "Butuh Darah Sekarang" dari beranda atau kunjungi /darurat.',
-      'Isi formulir: nama pasien, nomor kontak, rumah sakit tujuan, golongan darah, rhesus, dan jumlah kantong.',
-      'Upload foto Surat Rujukan RS sebagai bukti kebutuhan darah.',
-      'Klik "Kirim Permintaan" — permintaan akan masuk dengan status PENDING.',
-      'Admin PMI akan memverifikasi dokumen Anda dalam waktu singkat.',
-      'Jika disetujui, relawan yang cocok akan otomatis dihubungi via WhatsApp.',
-      'Pantau status permintaan Anda menggunakan ID yang diberikan setelah pengiriman.',
-    ],
-  },
-  {
-    q: 'Berapa lama proses verifikasi permintaan darah?',
-    steps: [
-      'Admin PMI biasanya memproses permintaan dalam 15–30 menit.',
-      'Untuk kasus CITO/darurat, proses dipercepat dan blast ke relawan dilakukan seketika.',
-      'Jika dokumen tidak lengkap atau tidak valid, permintaan akan ditolak dengan catatan alasan.',
-      'Anda akan menerima notifikasi melalui nomor kontak yang didaftarkan.',
-    ],
-  },
-  {
-    q: 'Apa yang dimaksud dengan Surat Rujukan RS?',
-    steps: [
-      'Surat Rujukan RS adalah dokumen resmi dari dokter/rumah sakit yang menyatakan kebutuhan transfusi darah.',
-      'Dokumen harus mencantumkan: nama pasien, golongan darah yang dibutuhkan, tanda tangan dokter, dan stempel RS.',
-      'Format yang diterima: foto JPG, PNG, atau file PDF.',
-      'Tanpa dokumen ini, permintaan tidak dapat diverifikasi dan akan ditolak.',
-    ],
-  },
-]
 
 const VOLUNTEER_FAQ: FaqItem[] = [
   {
-    q: 'Bagaimana cara menjadi relawan pendonor darah?',
+    q: 'Apa yang perlu dipersiapkan sebelum donor darah?',
     steps: [
-      'Daftar akun melalui halaman Daftar di beranda.',
-      'Lengkapi profil: nama, nomor WhatsApp, golongan darah, rhesus, dan kecamatan tempat tinggal.',
-      'Akun Anda akan aktif dan siap menerima notifikasi permintaan darah.',
-      'Pastikan nomor WhatsApp aktif agar bisa menerima broadcast dari sistem.',
+      'Pastikan tubuh dalam kondisi sehat.',
+      'Tidur cukup minimal 6–8 jam.',
+      'Minum air putih yang cukup.',
+      'Makanlah makanan yang cukup dan bergizi minimal 2 jam sebelumnya.',
+      'Hindari alkohol minimal 24 jam sebelumnya.',
+      'Jangan berpuasa minimal 4 jam sebelum donor.',
+      'Hindari makanan berlemak tinggi minimal 2 jam sebelumnya.',
     ],
   },
   {
-    q: 'Bagaimana cara merespons permintaan donor?',
+    q: 'Apa itu masa cooldown 90 hari?',
     steps: [
-      'Saat ada permintaan darah yang cocok, Anda akan mendapat pesan WhatsApp dari sistem.',
-      'Pesan berisi detail pasien, golongan darah yang dibutuhkan, dan lokasi rumah sakit.',
-      'Buka link yang diberikan di WhatsApp dan klik "Konfirmasi Hadir".',
-      'Datang ke RS sesuai jadwal yang telah ditetapkan admin.',
-      'Setelah donor selesai, status Anda akan masuk masa cooldown 90 hari.',
+      'Cooldown adalah masa istirahat setelah donor darah.',
+      'Selama masa cooldown Anda tidak dapat melakukan donor kembali.',
+      'Status relawan akan berubah menjadi tidak tersedia sementara.',
+      'Sistem akan menghitung masa cooldown secara otomatis.',
+      'Setelah 60 hari, status relawan akan aktif kembali.',
     ],
   },
   {
-    q: 'Apa itu Masa Cooldown 90 Hari?',
+    q: 'Apa yang harus dilakukan setelah donor darah?',
     steps: [
-      'Setelah berhasil donor darah, Anda tidak dapat donor lagi selama 90 hari.',
-      'Ini adalah standar medis untuk menjaga kesehatan pendonor.',
-      'Status Anda akan otomatis aktif kembali setelah 90 hari berlalu.',
-      'Selama cooldown, Anda masih bisa melihat permintaan darah tetapi tidak dapat merespons.',
-    ],
-  },
-  {
-    q: 'Bagaimana cara mengajukan donor mandiri (tanpa diminta)?',
-    steps: [
-      'Di dashboard, klik tombol "Ajukan Donor" jika status Anda aktif (tidak cooldown).',
-      'Admin PMI akan menjadwalkan sesi donor Anda.',
-      'Anda akan mendapat konfirmasi jadwal melalui WhatsApp.',
-      'Datang ke lokasi yang ditentukan sesuai jadwal.',
+      'Perbanyak minum air putih.',
+      'Hindari aktivitas berat selama beberapa jam.',
+      'Istirahat cukup dan jangan begadang.',
+      'Konsumsi makanan yang mengandung zat besi.',
+      'Pantau kondisi tubuh setelah donor.',
     ],
   },
 ]
@@ -166,16 +129,6 @@ export function FaqAccordion() {
         <p className="text-xs text-gray-400 mt-0.5">Klik pertanyaan untuk melihat langkah-langkah</p>
       </div>
 
-      <AccordionGroup
-        title="Untuk Pemohon (Butuh Darah)"
-        emoji="🆘"
-        color="#dc2626"
-        items={APPLICANT_FAQ}
-        openIndex={openIndex}
-        onToggle={toggle}
-        baseIndex={0}
-      />
-
       <div className="border-t border-gray-100" />
 
       <AccordionGroup
@@ -185,7 +138,7 @@ export function FaqAccordion() {
         items={VOLUNTEER_FAQ}
         openIndex={openIndex}
         onToggle={toggle}
-        baseIndex={APPLICANT_FAQ.length}
+        baseIndex={VOLUNTEER_FAQ.length}
       />
     </div>
   )

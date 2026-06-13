@@ -49,7 +49,6 @@ function RejectModal({
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white"
             style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)' }}>
-            ❌
           </div>
           <div>
             <h2 className="font-display font-bold text-gray-900">Tolak Permintaan Donor</h2>
@@ -97,7 +96,7 @@ function RejectModal({
             disabled={!note.trim()}
             className="flex-1 text-sm font-bold text-white px-4 py-2.5 rounded-xl disabled:opacity-40 transition-opacity"
             style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)' }}>
-            ✗ Konfirmasi Tolak
+            Konfirmasi Tolak
           </button>
         </div>
       </div>
@@ -201,7 +200,7 @@ function DonationCard({
                   ? { background: 'linear-gradient(135deg, #16a34a, #15803d)' }
                   : { background: '#9ca3af' }}
               >
-                {d.proof_url ? '🩸 Selesai' : '🔒 Tunggu Bukti'}
+                {d.proof_url ? ' Selesai' : ' Tunggu Bukti'}
               </button>
             )}
           </div>
