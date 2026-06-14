@@ -22,7 +22,7 @@ const VOLUNTEER_FAQ: FaqItem[] = [
     ],
   },
   {
-    q: 'Apa itu masa cooldown 90 hari?',
+    q: 'Apa itu masa cooldown 60 hari?',
     steps: [
       'Cooldown adalah masa istirahat setelah donor darah.',
       'Selama masa cooldown Anda tidak dapat melakukan donor kembali.',

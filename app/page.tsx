@@ -111,9 +111,9 @@ export default function HomePage() {
         </div>
 
         {/* Headline */}
-        <h1 className="font-display text-5xl md:text-6xl font-bold text-white leading-tight mb-6">
+        <h1 className="font-display text-5xl md:text-4xl font-bold text-white leading-tight mb-6">
           Setiap Tetes Darah<br />
-          <span className="text-gradient">Menyelamatkan Jiwa</span>
+          <span className="text-gradient" style={{ fontSize: '30px' }}>Menyelamatkan Jiwa</span>
         </h1>
 
         <p className="text-gray-400 text-lg mb-16 max-w-xl mx-auto leading-relaxed">
@@ -170,7 +170,7 @@ export default function HomePage() {
               <span className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2">Portal Relawan</span>
               <h2 className="font-display text-xl font-bold text-white mb-3">Ingin Berdonor?</h2>
               <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-                Daftarkan diri sebagai relawan pendonor darah. Terima notifikasi saat ada kebutuhan darah yang sesuai golongan Anda.
+                Daftarkan diri sebagai relawan pendonor darah. dan jadilah salah satu penolong
               </p>
 
               <div className="flex flex-col gap-3 w-full">

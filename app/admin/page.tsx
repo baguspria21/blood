@@ -74,43 +74,69 @@ export default async function AdminDashboardPage() {
         </div>
 
         {recentPending && recentPending.length > 0 ? (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                {['Pasien', 'Darah', 'Rumah Sakit', 'Tgl Minta', 'Aksi'].map((h) => (
-                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
+          <>
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {['Pasien', 'Darah', 'Rumah Sakit', 'Tgl Minta', 'Aksi'].map((h) => (
+                      <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {recentPending.map((req) => (
+                    <tr key={req.id} className="hover:bg-red-50/30 transition-colors">
+                      <td className="px-5 py-3 font-medium text-gray-900">{req.patient_name}</td>
+                      <td className="px-5 py-3">
+                        {req.blood_type ? (
+                          <span className="font-bold text-white text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--gradient-brand)' }}>
+                            {req.blood_type}{req.rhesus}
+                          </span>
+                        ) : <span className="text-gray-400 text-xs">—</span>}
+                      </td>
+                      <td className="px-5 py-3 text-gray-600 truncate max-w-[160px]">{req.requesting_hospital ?? '—'}</td>
+                      <td className="px-5 py-3 text-gray-400 text-xs">
+                        {req.request_date ? new Date(req.request_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      </td>
+                      <td className="px-5 py-3">
+                        <Link href={`/admin/transfusi/${req.id}`} className="text-xs font-semibold text-red-600 hover:underline">
+                          Respons →
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="sm:hidden divide-y divide-gray-50">
               {recentPending.map((req) => (
-                <tr key={req.id} className="hover:bg-red-50/30 transition-colors">
-                  <td className="px-5 py-3 font-medium text-gray-900">{req.patient_name}</td>
-                  <td className="px-5 py-3">
-                    {req.blood_type ? (
-                      <span className="font-bold text-white text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--gradient-brand)' }}>
-                        {req.blood_type}{req.rhesus}
-                      </span>
-                    ) : <span className="text-gray-400 text-xs">—</span>}
-                  </td>
-                  <td className="px-5 py-3 text-gray-600 truncate max-w-[160px]">{req.requesting_hospital ?? '—'}</td>
-                  <td className="px-5 py-3 text-gray-400 text-xs">
-                    {req.request_date ? new Date(req.request_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                  </td>
-                  <td className="px-5 py-3">
-                    <Link
-                      href={`/admin/transfusi/${req.id}`}
-                      className="text-xs font-semibold text-red-600 hover:underline"
-                    >
-                      Respons →
-                    </Link>
-                  </td>
-                </tr>
+                <div key={req.id} className="px-4 py-3 flex items-center gap-3">
+                  {req.blood_type ? (
+                    <span className="font-bold text-white text-xs px-2.5 py-1.5 rounded-xl flex-shrink-0" style={{ background: 'var(--gradient-brand)' }}>
+                      {req.blood_type}{req.rhesus}
+                    </span>
+                  ) : <span className="w-10 h-8 rounded-xl bg-gray-100 flex-shrink-0" />}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm truncate">{req.patient_name}</p>
+                    <p className="text-xs text-gray-500 truncate">{req.requesting_hospital ?? '—'}</p>
+                    <p className="text-[11px] text-gray-400">
+                      {req.request_date ? new Date(req.request_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                    </p>
+                  </div>
+                  <Link href={`/admin/transfusi/${req.id}`}
+                    className="flex-shrink-0 text-xs font-bold text-white px-3 py-1.5 rounded-lg gradient-brand whitespace-nowrap">
+                    Respons →
+                  </Link>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </>
         ) : (
           <div className="px-5 py-12 text-center text-gray-400">
             <p className="text-4xl mb-2">🎉</p>

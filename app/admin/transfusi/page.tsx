@@ -88,62 +88,109 @@ export default async function AdminTransfusiPage({
       {/* Table */}
       <div className="card overflow-hidden">
         {requests && requests.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  {['Pasien', 'Gol. Darah', 'Rumah Sakit', 'Tgl Minta', 'Tgl Diperlukan', 'Diagnosa', 'Kantong', 'Status', 'Aksi'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {requests.map(req => (
-                  <tr key={req.id} className="hover:bg-red-50/20 transition-colors">
-                    <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">{req.patient_name}</td>
-                    <td className="px-4 py-3">
-                      {req.blood_type ? (
-                        <span className="font-bold text-white text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--gradient-brand)' }}>
-                          {req.blood_type}{req.rhesus}
-                        </span>
-                      ) : <span className="text-gray-400 text-xs">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 max-w-[140px] truncate">{req.requesting_hospital ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
-                      {req.request_date ? new Date(req.request_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-xs whitespace-nowrap">
-                      {req.needed_date ? (
-                        <span className={`font-semibold ${new Date(req.needed_date) <= new Date() ? 'text-red-600' : 'text-gray-600'}`}>
-                          {new Date(req.needed_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </span>
-                      ) : <span className="text-gray-400">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs max-w-[120px] truncate">{req.diagnosis ?? '—'}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${
-                        (countMap[req.id] ?? 0) > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                      }`}>
-                        {countMap[req.id] ?? 0}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3"><StatusBadge status={req.status} /></td>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/admin/transfusi/${req.id}`}
-                        id={`respond-${req.id}`}
-                        className="text-xs font-bold text-white px-3 py-1.5 rounded-lg gradient-brand hover:opacity-90 transition-opacity whitespace-nowrap"
-                      >
-                        Respons →
-                      </Link>
-                    </td>
+          <>
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {['Pasien', 'Gol. Darah', 'Rumah Sakit', 'Tgl Minta', 'Tgl Diperlukan', 'Diagnosa', 'Kantong', 'Status', 'Aksi'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {requests.map(req => (
+                    <tr key={req.id} className="hover:bg-red-50/20 transition-colors">
+                      <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">{req.patient_name}</td>
+                      <td className="px-4 py-3">
+                        {req.blood_type ? (
+                          <span className="font-bold text-white text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--gradient-brand)' }}>
+                            {req.blood_type}{req.rhesus}
+                          </span>
+                        ) : <span className="text-gray-400 text-xs">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 max-w-[140px] truncate">{req.requesting_hospital ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+                        {req.request_date ? new Date(req.request_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-xs whitespace-nowrap">
+                        {req.needed_date ? (
+                          <span className={`font-semibold ${new Date(req.needed_date) <= new Date() ? 'text-red-600' : 'text-gray-600'}`}>
+                            {new Date(req.needed_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </span>
+                        ) : <span className="text-gray-400">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 text-xs max-w-[120px] truncate">{req.diagnosis ?? '—'}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${
+                          (countMap[req.id] ?? 0) > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {countMap[req.id] ?? 0}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3"><StatusBadge status={req.status} /></td>
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/admin/transfusi/${req.id}`}
+                          id={`respond-${req.id}`}
+                          className="text-xs font-bold text-white px-3 py-1.5 rounded-lg gradient-brand hover:opacity-90 transition-opacity whitespace-nowrap"
+                        >
+                          Respons →
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="sm:hidden divide-y divide-gray-100">
+              {requests.map(req => (
+                <div key={req.id} className="p-4 space-y-2">
+                  {/* Row 1: blood type + name + status */}
+                  <div className="flex items-start gap-3">
+                    {req.blood_type ? (
+                      <div className="flex-shrink-0 w-11 h-11 rounded-xl flex flex-col items-center justify-center" style={{ background: 'var(--gradient-brand)' }}>
+                        <span className="text-white font-black text-xs leading-none">{req.blood_type}</span>
+                        <span className="text-red-200 text-[10px] font-bold">{req.rhesus}</span>
+                      </div>
+                    ) : (
+                      <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-gray-100" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-gray-900 text-sm">{req.patient_name}</p>
+                        <StatusBadge status={req.status} />
+                      </div>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{req.requesting_hospital ?? '—'}</p>
+                    </div>
+                    <Link
+                      href={`/admin/transfusi/${req.id}`}
+                      id={`respond-mobile-${req.id}`}
+                      className="flex-shrink-0 text-xs font-bold text-white px-3 py-1.5 rounded-lg gradient-brand whitespace-nowrap self-start"
+                    >
+                      Respons →
+                    </Link>
+                  </div>
+                  {/* Row 2: meta info */}
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500 pl-14">
+                    <span>📅 Minta: {req.request_date ? new Date(req.request_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '—'}</span>
+                    <span className={new Date(req.needed_date ?? '') <= new Date() ? 'text-red-500 font-semibold' : ''}>
+                      ⏰ Perlu: {req.needed_date ? new Date(req.needed_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '—'}
+                    </span>
+                    {(countMap[req.id] ?? 0) > 0 && (
+                      <span className="text-green-600 font-semibold">✅ {countMap[req.id]} respons</span>
+                    )}
+                    {req.diagnosis && <span className="truncate max-w-[200px]">📋 {req.diagnosis}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         ) : (
           <div className="px-5 py-14 text-center text-gray-400">
             <p className="text-4xl mb-2">📋</p>

@@ -69,7 +69,8 @@ export default async function RelawanPage() {
 
       {/* Table */}
       <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop table */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
@@ -115,14 +116,53 @@ export default async function RelawanPage() {
               })}
             </tbody>
           </table>
-
-          {(!volunteers || volunteers.length === 0) && (
-            <div className="py-14 text-center text-gray-400">
-              <p className="text-3xl mb-2">👥</p>
-              <p>Belum ada relawan terdaftar.</p>
-            </div>
-          )}
         </div>
+
+        {/* Mobile cards */}
+        <div className="sm:hidden divide-y divide-gray-100">
+          {volunteers?.map((v) => {
+            const cooldown = getCooldownStatus(v.last_donated_at)
+            return (
+              <div key={v.id} className="px-4 py-3 flex items-center gap-3">
+                {/* Blood type badge */}
+                <div
+                  className="flex-shrink-0 w-11 h-11 rounded-xl flex flex-col items-center justify-center"
+                  style={{ background: BLOOD_TYPE_COLORS[v.blood_type ?? ''] ?? '#6b7280' }}
+                >
+                  <span className="text-white font-black text-xs leading-none">{v.blood_type}</span>
+                  <span className="text-white/70 text-[10px] font-bold">{v.rhesus}</span>
+                </div>
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-bold text-gray-900 text-sm truncate">{v.name}</p>
+                    <span
+                      className="text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                      style={v.is_active
+                        ? { color: '#166534', background: '#dcfce7' }
+                        : { color: '#92400e', background: '#fef3c7' }
+                      }
+                    >
+                      {v.is_active ? 'Aktif' : 'Cooldown'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 font-mono mt-0.5">{v.phone_number}</p>
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] mt-0.5">
+                    {v.sub_district && <span className="text-gray-400">📍 {v.sub_district}</span>}
+                    <span style={{ color: cooldown.color }}>{cooldown.label}</span>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {(!volunteers || volunteers.length === 0) && (
+          <div className="py-14 text-center text-gray-400">
+            <p className="text-3xl mb-2">👥</p>
+            <p>Belum ada relawan terdaftar.</p>
+          </div>
+        )}
       </div>
     </div>
   )
