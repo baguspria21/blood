@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabaseServer'
 import Link from 'next/link'
+import { HospitalNavClient } from './_components/HospitalNavClient'
 
 function HospitalIcon({ size = 20, className = '' }: { size?: number; className?: string }) {
   return (
@@ -26,55 +27,35 @@ export default async function RumahSakitLayout({ children }: { children: React.R
 
   return (
     <div className="min-h-screen" style={{ background: '#f9fafb' }}>
-      <header className="sticky top-0 z-40 border-b border-red-100"
-        style={{ background: 'white', boxShadow: '0 1px 8px rgba(220,38,38,0.08)' }}>
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/rumah-sakit/dashboard" className="flex items-center gap-2.5 no-underline">
-            <div className="w-8 h-8 rounded-lg gradient-brand flex items-center justify-center"
-              style={{ boxShadow: '0 2px 8px rgba(220,38,38,0.35)' }}>
+      {/* ── Sticky header ───────────────────────────────────────── */}
+      <header
+        className="sticky top-0 z-40 border-b border-red-100"
+        style={{ background: 'white', boxShadow: '0 1px 8px rgba(220,38,38,0.08)' }}
+      >
+        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
+          {/* Logo / Brand */}
+          <Link href="/rumah-sakit/dashboard" className="flex items-center gap-2.5 no-underline flex-shrink-0">
+            <div
+              className="w-8 h-8 rounded-lg gradient-brand flex items-center justify-center"
+              style={{ boxShadow: '0 2px 8px rgba(220,38,38,0.35)' }}
+            >
               <HospitalIcon size={14} className="text-white" />
             </div>
             <div className="leading-tight">
               <span className="font-display font-bold text-gray-900 text-sm">
                 Blood<span className="text-gradient">Connect</span>
               </span>
-              <span className="block text-[10px] text-gray-400 font-medium -mt-0.5 tracking-wide">PORTAL RUMAH SAKIT</span>
+              <span className="block text-[10px] text-gray-400 font-medium -mt-0.5 tracking-wide">
+                PORTAL RUMAH SAKIT
+              </span>
             </div>
           </Link>
 
-          <nav className="flex items-center gap-1">
-            <Link href="/rumah-sakit/dashboard" id="rs-nav-dashboard"
-              className="text-sm font-medium text-gray-600 px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors">
-              Dashboard
-            </Link>
-            <Link href="/rumah-sakit/status" id="rs-nav-status"
-              className="text-sm font-medium text-gray-600 px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors">
-              Status Permintaan
-            </Link>
-            <Link href="/rumah-sakit/deskripsi" id="rs-nav-deskripsi"
-              className="text-sm font-medium text-gray-600 px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors">
-              Deskripsi Respons
-            </Link>
-            <Link href="/rumah-sakit/profil" id="rs-nav-profil"
-              className="text-sm font-medium text-gray-600 px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors">
-              Profil
-            </Link>
-          </nav>
-
-          <div className="flex items-center gap-3">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-semibold text-gray-800">{profile?.name ?? 'RS'}</p>
-              <p className="text-[11px] text-red-500 font-medium">Rumah Sakit</p>
-            </div>
-            <form action="/api/v1/auth/logout" method="POST">
-              <button type="submit" id="rs-logout-btn"
-                className="text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors">
-                Keluar
-              </button>
-            </form>
-          </div>
+          {/* Desktop nav + mobile hamburger — handled by client component */}
+          <HospitalNavClient profileName={profile?.name ?? 'RS'} />
         </div>
       </header>
+
       <main className="max-w-5xl mx-auto px-4 py-6">{children}</main>
     </div>
   )

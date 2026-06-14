@@ -11,10 +11,11 @@ export default async function RumahSakitStatusPage() {
 
   if (!user) redirect('/login')
 
-  // Fetch this hospital's most recent 30 transfusion requests
+  // Fetch only THIS hospital account's most recent 30 transfusion requests (data isolation)
   const { data: requests } = await supabase
     .from('transfusion_requests')
     .select('id, patient_name, blood_type, rhesus, requesting_hospital, request_date, needed_date, status, rejection_notes, created_at')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(30)
 

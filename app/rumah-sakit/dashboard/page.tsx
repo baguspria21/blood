@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabaseServer'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
 export const metadata = { title: 'Dashboard — Portal Rumah Sakit | Blood-Connect Palu' }
@@ -23,10 +24,13 @@ export default async function RumahSakitDashboardPage() {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Fetch this hospital's transfusion requests
+  if (!user) redirect('/login')
+
+  // Fetch only THIS hospital account's transfusion requests (data isolation)
   const { data: requests } = await supabase
     .from('transfusion_requests')
     .select('id, patient_name, blood_type, rhesus, requesting_hospital, request_date, needed_date, status, created_at')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(20)
 
@@ -54,7 +58,7 @@ export default async function RumahSakitDashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: 'Total Permintaan', value: total, color: '#dc2626' },
           { label: 'Menunggu Respons', value: pending, color: '#d97706' },

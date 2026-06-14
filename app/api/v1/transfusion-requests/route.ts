@@ -112,6 +112,8 @@ export async function POST(req: NextRequest) {
       rhesus:                   rhesus as '+' | '-' | null,
       hospital_id:              getString('hospital_id'),
       requesting_hospital_signature: getString('requesting_hospital_signature'),
+      // ── Data isolation: link request to submitting hospital account ──
+      user_id:                  user.id,
       status:                   'pending' as const,
     }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { getSupabase } from '@/lib/supabaseClient'
 
 interface TransfusionResponse {
@@ -134,8 +134,17 @@ export default function RumahSakitDeskripsiPage() {
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  // Data isolation: track the authenticated hospital user's ID
+  const [userId, setUserId] = useState<string | null>(null)
 
-  async function fetchAll() {
+  // Resolve the current user once on mount
+  useEffect(() => {
+    getSupabase()
+      .auth.getUser()
+      .then(({ data }) => setUserId(data.user?.id ?? null))
+  }, [])
+
+  const fetchAll = useCallback(async (uid: string) => {
     const supabase = getSupabase()
     const { data } = await supabase
       .from('transfusion_requests')
@@ -149,6 +158,8 @@ export default function RumahSakitDeskripsiPage() {
           officer_name, release_date, release_time, receiver_name, created_at
         )
       `)
+      // ── Application-level data isolation ──
+      .eq('user_id', uid)
       .order('updated_at', { ascending: false })
       .limit(30)
 
@@ -165,24 +176,27 @@ export default function RumahSakitDeskripsiPage() {
     }
     setLoading(false)
     setLastUpdated(new Date())
-  }
+  }, [expandedId])
 
+  // Subscribe to realtime updates once we have the user ID
   useEffect(() => {
-    fetchAll()
+    if (!userId) return
+
+    fetchAll(userId)
 
     const supabase = getSupabase()
     const channel = supabase
-      .channel('rs-deskripsi-live')
+      .channel(`rs-deskripsi-live-${userId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transfusion_requests' }, () => {
-        fetchAll()
+        fetchAll(userId)
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transfusion_responses' }, () => {
-        fetchAll()
+        fetchAll(userId)
       })
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId, fetchAll])
 
   if (loading) {
     return (
